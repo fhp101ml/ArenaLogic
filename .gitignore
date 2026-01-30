@@ -1,0 +1,36 @@
+# General
+.DS_Store
+Thumbs.db
+.env
+.env.local
+.env.*.local
+
+# Backend (Python)
+backend/__pycache__/
+backend/*.py[cod]
+backend/*$py.class
+backend/.pytest_cache/
+backend/venv/
+backend/env/
+backend/.env
+
+# Frontend (Node/React)
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/*.local
+frontend/.eslintcache
+
+# Logs and databases
+*.log
+*.sqlite
+backend/*.log
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Artifacts/Gemini Brain (Internal)
+.gemini/
