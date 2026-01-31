@@ -92,31 +92,46 @@ const GameInstructions = () => {
 
                                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-[10px]">
                                             <div className="p-2 bg-black/40 rounded border border-slate-800">
-                                                <div className="font-bold text-cyan-400 mb-1">AND (Y)</div>
-                                                <p className="text-slate-500">1 y 1 = 1</p>
-                                                <p className="text-slate-500 italic">Solo 1 si todo es 1</p>
+                                                <div className="font-bold text-cyan-400 mb-1 flex justify-between">
+                                                    <span>AND (Y)</span>
+                                                    <span className="text-emerald-500 x-small">+2 XP</span>
+                                                </div>
+                                                <p className="text-slate-300">1 y 1 = 1</p>
+                                                <p className="text-slate-300 italic">Solo 1 si todo es 1</p>
                                             </div>
                                             <div className="p-2 bg-black/40 rounded border border-slate-800">
-                                                <div className="font-bold text-cyan-400 mb-1">OR (O)</div>
-                                                <p className="text-slate-500">0 o 1 = 1 | 1 o 1 = 1</p>
-                                                <p className="text-slate-500 italic">1 si hay algún 1</p>
+                                                <div className="font-bold text-cyan-400 mb-1 flex justify-between">
+                                                    <span>OR (O)</span>
+                                                    <span className="text-emerald-500 x-small">+1 XP</span>
+                                                </div>
+                                                <p className="text-slate-300">0 o 1 = 1 | 1 o 1 = 1</p>
+                                                <p className="text-slate-300 italic">1 si hay algún 1</p>
                                             </div>
                                             <div className="p-2 bg-black/40 rounded border border-slate-800">
-                                                <div className="font-bold text-cyan-400 mb-1">XOR (O Exclusiva)</div>
-                                                <p className="text-slate-500">1 o 0 = 1 | 1 o 1 = 0</p>
-                                                <p className="text-slate-500 italic">1 solo si son distintos</p>
+                                                <div className="font-bold text-cyan-400 mb-1 flex justify-between">
+                                                    <span>XOR</span>
+                                                    <span className="text-emerald-500 x-small">+3 XP</span>
+                                                </div>
+                                                <p className="text-slate-300">1 o 0 = 1 | 1 o 1 = 0</p>
+                                                <p className="text-slate-300 italic">1 solo si son distintos</p>
                                             </div>
                                             <div className="p-2 bg-black/40 rounded border border-slate-800">
-                                                <div className="font-bold text-red-400 mb-1">NAND (NO Y)</div>
-                                                <p className="text-slate-500 italic">Inverso de AND</p>
+                                                <div className="font-bold text-red-400 mb-1 flex justify-between">
+                                                    <span>NAND</span>
+                                                    <span className="text-emerald-500 x-small">+2 XP</span>
+                                                </div>
+                                                <p className="text-slate-300 italic">Inverso de AND</p>
                                             </div>
                                             <div className="p-2 bg-black/40 rounded border border-slate-800">
-                                                <div className="font-bold text-red-400 mb-1">NOR (NO O)</div>
-                                                <p className="text-slate-500 italic">Inverso de OR</p>
+                                                <div className="font-bold text-red-400 mb-1 flex justify-between">
+                                                    <span>NOR</span>
+                                                    <span className="text-emerald-500 x-small">+3 XP</span>
+                                                </div>
+                                                <p className="text-slate-300 italic">Inverso de OR</p>
                                             </div>
                                             <div className="p-2 bg-cyan-900/20 rounded border border-cyan-500/30">
                                                 <div className="font-bold text-orange-400 mb-1">NOT (Inversor)</div>
-                                                <p className="text-slate-500 italic">Invierte el valor: 0→1 | 1→0</p>
+                                                <p className="text-slate-300 italic">Invierte el valor: 0→1 | 1→0</p>
                                             </div>
                                         </div>
                                     </section>

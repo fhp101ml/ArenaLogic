@@ -77,22 +77,25 @@ const InstructionsPage = () => {
 
                             <Row className="g-3">
                                 {[
-                                    { name: 'AND (Y)', sym: '&&', desc: '1 y 1 → 1', sub: 'Solo activa si AMBOS son 1.', color: 'info' },
-                                    { name: 'OR (O)', sym: '||', desc: 'Si hay algún 1 → 1', sub: 'Activa si al menos uno es 1.', color: 'info' },
-                                    { name: 'XOR', sym: '!=', desc: 'Diferentes (0,1) → 1', sub: 'Solo activa si son distintos.', color: 'info' },
-                                    { name: 'NAND', sym: '!&', desc: 'Inverso de AND', sub: '1 y 1 → 0, resto → 1', color: 'warning' },
-                                    { name: 'NOR', sym: '!|', desc: 'Inverso de OR', sub: '0 o 0 → 1, resto → 0', color: 'warning' },
+                                    { name: 'AND (Y)', sym: '&&', desc: '1 y 1 → 1', sub: 'Solo activa si AMBOS son 1.', color: 'info', xp: '+2 XP' },
+                                    { name: 'OR (O)', sym: '||', desc: 'Si hay algún 1 → 1', sub: 'Activa si al menos uno es 1.', color: 'info', xp: '+1 XP' },
+                                    { name: 'XOR', sym: '!=', desc: 'Diferentes (0,1) → 1', sub: 'Solo activa si son distintos.', color: 'info', xp: '+3 XP' },
+                                    { name: 'NAND', sym: '!&', desc: 'Inverso de AND', sub: '1 y 1 → 0, resto → 1', color: 'warning', xp: '+2 XP' },
+                                    { name: 'NOR', sym: '!|', desc: 'Inverso de OR', sub: '0 o 0 → 1, resto → 0', color: 'warning', xp: '+3 XP' },
                                     { name: 'NOT', sym: '!', desc: 'Inversor (0→1 | 1→0)', sub: 'Invierte el valor del canal.', color: 'danger' }
                                 ].map(gate => (
                                     <Col lg={4} md={6} key={gate.name}>
                                         <Card bg="black" border={gate.color} className="bg-opacity-50 border-opacity-25 h-100 hover-info transition-all">
                                             <Card.Body className="p-3 text-center">
-                                                <div className={`h5 fw-bold text-${gate.color} mb-2 d-flex justify-content-between`}>
+                                                <div className={`h5 fw-bold text-${gate.color} mb-2 d-flex justify-content-between align-items-center`}>
                                                     <span>{gate.name}</span>
-                                                    <Badge bg={gate.color} text="dark" className="fs-6">{gate.sym}</Badge>
+                                                    <div className="d-flex gap-2">
+                                                        {gate.xp && <span className="x-small text-emerald-400 fw-black">{gate.xp}</span>}
+                                                        <Badge bg={gate.color} text="dark" className="fs-6">{gate.sym}</Badge>
+                                                    </div>
                                                 </div>
                                                 <div className="fw-black fs-5 text-white mb-1">{gate.desc}</div>
-                                                <small className="opacity-50 italic">{gate.sub}</small>
+                                                <small className="opacity-75 italic">{gate.sub}</small>
                                             </Card.Body>
                                         </Card>
                                     </Col>

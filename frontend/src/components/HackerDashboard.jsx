@@ -2,7 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Container, Row, Col, Card, Button, Form, Badge, ProgressBar, InputGroup } from 'react-bootstrap';
 
-const HackerDashboard = ({ gameState, onStartRound, onToggleNot, onKickPlayer, onSetGameMode, onSetTargetGate, onSetTargetGates, onSetLogicMode, onResetScores }) => {
+const HackerDashboard = ({ gameState, onStartRound, onToggleNot, onKickPlayer, onSetGameMode, onSetTargetGate, onSetTargetGates, onSetLogicMode, onSetMaxPlayers, onSetNotLockout, onResetScores, onToggleChat }) => {
     const [roundDuration, setRoundDuration] = React.useState(30);
     const [timeLeft, setTimeLeft] = React.useState(0);
 
@@ -104,6 +104,51 @@ const HackerDashboard = ({ gameState, onStartRound, onToggleNot, onKickPlayer, o
                                             ? 'Validate final logical state.'
                                             : 'Manipulate inputs for gate penetration.'}
                                     </Form.Text>
+                                </Form.Group>
+
+                                {/* Max Players Per Team Control */}
+                                <Form.Group>
+                                    <div className="d-flex justify-content-between mb-2">
+                                        <Form.Label className="small fw-bold text-success opacity-75">TEAM_CAPACITY</Form.Label>
+                                        <span className="text-success fw-black">{gameState.max_players_per_team || 3} Units</span>
+                                    </div>
+                                    <Form.Range
+                                        min={1} max={5} step={1}
+                                        value={gameState.max_players_per_team || 3}
+                                        onChange={(e) => onSetMaxPlayers?.(Number(e.target.value))}
+                                        disabled={gameState.state === 'PLAYING'}
+                                        className="accent-success"
+                                    />
+                                    <Form.Text className="text-success opacity-50 x-small mt-1 d-block">
+                                        Adjust sequential filling threshold.
+                                    </Form.Text>
+                                </Form.Group>
+
+                                {/* NOT Lockout Control */}
+                                <Form.Group>
+                                    <div className="d-flex justify-content-between mb-2">
+                                        <Form.Label className="small fw-bold text-success opacity-75">SABOTAGE_LOCKOUT</Form.Label>
+                                        <span className="text-success fw-black">{gameState.not_lockout_time || 5}s Before End</span>
+                                    </div>
+                                    <Form.Range
+                                        min={0} max={30} step={5}
+                                        value={gameState.not_lockout_time || 5}
+                                        onChange={(e) => onSetNotLockout?.(Number(e.target.value))}
+                                        disabled={gameState.state === 'PLAYING'}
+                                        className="accent-success"
+                                    />
+                                    <Form.Text className="text-success opacity-50 x-small mt-1 d-block">
+                                        Disable NOT gates when time is low.
+                                    </Form.Text>
+                                    <hr className="border-secondary opacity-25 my-4" />
+                                    <Button
+                                        variant="outline-danger"
+                                        className="w-100 fw-bold tracking-widest text-uppercase"
+                                        onClick={onResetScores}
+                                        disabled={gameState.state === 'PLAYING'}
+                                    >
+                                        ⚠️ RESET ALL SCORES
+                                    </Button>
                                 </Form.Group>
 
                                 {/* Target Gate Selection (Competitive Mode - SINGLE) */}
@@ -233,6 +278,17 @@ const HackerDashboard = ({ gameState, onStartRound, onToggleNot, onKickPlayer, o
                                             <Badge bg={team.solved ? "success" : "secondary"} text="dark" pill>
                                                 {team.solved ? 'SOLVED' : 'ACTIVE'}
                                             </Badge>
+                                            <div className="d-flex align-items-center gap-2 ms-2">
+                                                <Form.Check
+                                                    type="switch"
+                                                    id={`chat-switch-${team.id}`}
+                                                    label="💬"
+                                                    checked={team.chat_enabled || false}
+                                                    onChange={() => onToggleChat?.(team.id)}
+                                                    className="fs-6"
+                                                    title="Toggle Team Chat"
+                                                />
+                                            </div>
                                         </Card.Header>
                                         <Card.Body className="p-4">
                                             <Row className="mb-4 g-3">

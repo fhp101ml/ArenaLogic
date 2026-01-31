@@ -12,7 +12,37 @@ In Logic Arena, players are "Operatives" assigned to teams (Alpha/Beta). Each ro
 ### Logical Gates Supported
 - `AND`, `OR`, `XOR`, `XNOR`, `NAND`, `NOR`.
 
+### ⚖️ Game Mechanics (v2.0)
+
+#### Scoring & Hazards
+- **Deferred Scoring**: Points are calculated but hidden until the round ends ("Data Analysis" phase) to prevent spoilers.
+- **Sabotage**:
+  - Activating a **NOT** gate on a rival costs **-1 Point**.
+  - **Lockout Phase**: Sabotage is disabled during the final seconds (configurable) of a round.
+  - **Counter-Bonus**: If a team solves a gate while being sabotaged (by a rival or the Hacker), they earn **+0.5 Bonus Points**.
+
+#### Hacker Controls
+The Operator (Hacker) has advanced administrative tools:
+- **Team Size**: Configurable team limits (min/max).
+- **Lockout Timer**: Adjustable "Safe Zone" before round end.
+- **Reset Protocol**: Ability to wipe all scores and restart the match.
+
 ---
+
+### ♿ Accessibility Features
+- **Secure Team Chat**: A dedicated, text-based communication channel for each team.
+  - **Hacker Controlled**: The operator can toggle this feature per team (e.g., for hearing-impaired players).
+  - **High Contrast**: Optimized text colors (Cyan/White) for readability in low-light environments.
+- **Visual Feedback**: Enhanced "LED-style" glowing buttons and large status text for clear voting confirmation.
+
+### 🎨 Visual Enhancements
+- **Realistic Logic Symbols**: The game now uses standard **IEC/ANSI SVG symbols** for all gates (AND, OR, XOR, NOT, NAND, NOR, XNOR).
+  - Dynamic shapes that adapt to input activity.
+  - "Active" glow effects when the gate outputs a `1`.
+- **Pulse Animations**: Status indicators (like "Awaiting Team") pulse to draw attention during critical phases.
+
+---
+
 
 ## 🛠️ Technical Architecture
 

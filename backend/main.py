@@ -1,5 +1,6 @@
 from game_manager import GameManager
 import asyncio
+import sys
 import time
 import socketio
 from fastapi import FastAPI
@@ -43,8 +44,8 @@ async def join_game(sid, data):
     team_id = data.get('team_id')
     avatar = data.get('avatar', '😀')
     
-    success = game_manager.join_room(sid, room_id, name, role, team_id, avatar)
-    print(f"DEBUG: join_room result for {sid}: {success}")
+    success, info = game_manager.join_room(sid, room_id, name, role, team_id, avatar)
+    print(f"DEBUG: join_room result for {sid}: {success} - {info}")
     
     if success:
         await sio.enter_room(sid, room_id)
@@ -53,8 +54,8 @@ async def join_game(sid, data):
         # Send full state to everyone in room
         await broadcast_room_state(room_id)
     else:
-        print(f"DEBUG: Join failed for {sid}")
-        await sio.emit('error', {'message': 'Could not join room'}, to=sid)
+        print(f"DEBUG: Join failed for {sid}: {info}")
+        await sio.emit('error', {'message': f'Join Failed: {info}'}, to=sid)
 
 @sio.event
 async def start_round(sid, data):
@@ -162,6 +163,48 @@ async def reset_scores(sid, data):
         await broadcast_room_state(room_id)
 
 @sio.event
+async def toggle_chat(sid, data):
+    """Operator toggles chat for a specific team"""
+    room_id = data.get('room_id')
+    team_id = data.get('team_id')
+    room = game_manager.rooms.get(room_id)
+    if room and room.operator_sid == sid:
+        game_manager.toggle_team_chat(room_id, team_id)
+        await broadcast_room_state(room_id)
+
+@sio.event
+async def chat_message(sid, data):
+    """Player sends a chat message to their team"""
+    room_id = data.get('room_id')
+    message = data.get('message')
+    room = game_manager.rooms.get(room_id)
+    
+    if not room:
+        return
+
+    # Check permissions
+    if game_manager.can_chat(room_id, sid):
+        # Find which team the player belongs to
+        target_team = None
+        player_name = "Unknown"
+        for team in room.teams.values():
+            if sid in team.players:
+                target_team = team
+                player_name = team.players[sid].name
+                break
+        
+        if target_team:
+            # Emit ONLY to team members
+            for member_sid in target_team.players.keys():
+                await sio.emit('chat_message', {
+                    'sender': player_name,
+                    'text': message,
+                    'is_me': member_sid == sid
+                }, room=member_sid)
+    else:
+        await sio.emit('error', {'message': 'Chat is disabled for your team.'}, to=sid)
+
+@sio.event
 async def set_logic_mode(sid, data):
     """Operator sets the logic mode ('predict' or 'open')"""
     room_id = data.get('room_id')
@@ -170,6 +213,30 @@ async def set_logic_mode(sid, data):
     room = game_manager.set_logic_mode(room_id, mode)
     if room:
         await broadcast_room_state(room_id)
+
+@sio.event
+async def set_max_players(sid, data):
+    """Operator sets the maximum members allowed per team"""
+    room_id = data.get('room_id')
+    count = int(data.get('count', 3))
+    
+    room = game_manager.rooms.get(room_id)
+    if room and room.operator_sid == sid:
+        success = game_manager.set_max_players(room_id, count)
+        if success:
+            await broadcast_room_state(room_id)
+
+@sio.event
+async def set_not_lockout(sid, data):
+    """Operator sets the NOT gate lockout time"""
+    room_id = data.get('room_id')
+    seconds = int(data.get('seconds', 5))
+    
+    room = game_manager.rooms.get(room_id)
+    if room and room.operator_sid == sid:
+        success = game_manager.set_not_lockout_time(room_id, seconds)
+        if success:
+            await broadcast_room_state(room_id)
 
 @sio.event
 async def upload_card_image(sid, data):
@@ -200,6 +267,8 @@ async def broadcast_room_state(room_id):
             'custom_card_0': room.custom_card_0,
             'custom_card_1': room.custom_card_1,
             'logic_mode': room.logic_mode,
+            'max_players_per_team': room.max_players_per_team,
+            'not_lockout_time': room.not_lockout_time,
             'target_gate': room.target_gate,
             'target_gates': room.target_gates,
             'teams': {
@@ -210,7 +279,14 @@ async def broadcast_room_state(room_id):
                     'solved_current_round': t.solved_current_round,
                     'last_round_result': t.last_round_result,
                     'not_gates_used': t.not_gates_used,
+                    'was_sabotaged': t.was_sabotaged,
+                    'round_stats': {
+                        'base': t.last_round_base,
+                        'bonus': t.last_round_bonus,
+                        'penalty': t.last_round_penalty
+                    },
                     'current_gate': t.current_gate,
+                    'chat_enabled': t.chat_enabled,
                     'players': {
                         pid: {
                             'sid': pid,
@@ -227,6 +303,70 @@ async def broadcast_room_state(room_id):
         }
         await sio.emit('game_state', state, room=room_id)
 
+async def terminal_reader():
+    """Reads commands from stdin to allow the hacker to control the game"""
+    print("\n--- HACKER TERMINAL ACTIVE ---")
+    print("Available commands:")
+    print("  add team <room_id> <team_id> <team_name>")
+    print("  set max_players <room_id> <count>")
+    print("  set not_lockout <room_id> <seconds>")
+    print("Example: add team demo-room C \"Team Gamma\"\n")
+    
+    loop = asyncio.get_event_loop()
+    while True:
+        line = await loop.run_in_executor(None, sys.stdin.readline)
+        if not line:
+            break
+        
+        parts = line.strip().split(maxsplit=4)
+        if not parts: continue
+        
+        cmd = parts[0].lower()
+        if cmd == "add" and len(parts) >= 4 and parts[1].lower() == "team":
+            # add team <room_id> <team_id> <team_name>
+            room_id = parts[2]
+            team_id = parts[3]
+            team_name = parts[4] if len(parts) > 4 else f"Team {team_id}"
+            
+            success = game_manager.add_team(room_id, team_id, team_name)
+            if success:
+                print(f"SUCCESS: Team {team_id} ({team_name}) added to {room_id}")
+                await broadcast_room_state(room_id)
+            else:
+                print(f"ERROR: Could not add team. Check if room exists or team_id taken.")
+        elif cmd == "set" and len(parts) >= 4 and parts[1].lower() == "max_players":
+            # set max_players <room_id> <count>
+            room_id = parts[2]
+            try:
+                count = int(parts[3])
+                success = game_manager.set_max_players(room_id, count)
+                if success:
+                    print(f"SUCCESS: Max players set to {count} for {room_id}")
+                    await broadcast_room_state(room_id)
+                else:
+                    print(f"ERROR: Could not set max players. Invalid count or room.")
+            except ValueError:
+                print("ERROR: Count must be a number.")
+        elif cmd == "set" and len(parts) >= 4 and parts[1].lower() == "not_lockout":
+            # set not_lockout <room_id> <seconds>
+            room_id = parts[2]
+            try:
+                seconds = int(parts[3])
+                success = game_manager.set_not_lockout_time(room_id, seconds)
+                if success:
+                    print(f"SUCCESS: NOT lockout set to {seconds} for {room_id}")
+                    await broadcast_room_state(room_id)
+                else:
+                    print(f"ERROR: Could not set lockout. Invalid seconds or room.")
+            except ValueError:
+                print("ERROR: Seconds must be a number.")
+        else:
+            print(f"UNKNOWN COMMAND: {line.strip()}")
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(terminal_reader())
+
 async def game_timer(room_id):
     room = game_manager.rooms.get(room_id)
     while room and room.state == "PLAYING":
@@ -235,14 +375,8 @@ async def game_timer(room_id):
             # Final logic evaluation before ending
             game_manager.check_logic(room_id)
             
-            # Mark results before changing state
-            for team in room.teams.values():
-                if team.solved_current_round:
-                    team.last_round_result = "success"
-                else:
-                    team.last_round_result = "failed"
-                    # Deduct 2 points for failure
-                    team.score = max(0, team.score - 2)
+            # Apply deferred scores
+            game_manager.finalize_round_scores(room_id)
             
             room.state = "FINISHED"
             

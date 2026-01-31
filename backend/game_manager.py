@@ -46,6 +46,11 @@ class Team:
     last_round_result: str = None  # "success", "failed", or None
     not_gates_used: int = 0  # Count of NOT gates used in current round
     current_gate: str = 'AND'  # Current gate type for this team
+    was_sabotaged: bool = False # If any rival applied NOT to this team this round
+    last_round_bonus: float = 0
+    last_round_penalty: float = 0
+    last_round_base: float = 0
+    chat_enabled: bool = False # Accessibility feature
 
 @dataclass
 class Room:
@@ -62,6 +67,8 @@ class Room:
     round_number: int = 0
     custom_card_0: Optional[str] = None  # base64 image data
     custom_card_1: Optional[str] = None  # base64 image data
+    max_players_per_team: int = 3
+    not_lockout_time: int = 5 # Seconds before round end where NOT is disabled
     
     # Game Logic State
     target_gate: str = "AND"
@@ -91,18 +98,65 @@ class GameManager:
             if room.operator_sid is None:
                 room.operator_sid = sid
                 return True
-            return False # Already has operator
+    def join_room(self, sid: str, room_id: str, name: str, role: str, team_id: Optional[str] = None, avatar: str = '😀'):
+        # Role: 'player' or 'operator'
+        room = self.create_room(room_id)
+        
+        if role == 'operator':
+            if room.operator_sid is None:
+                room.operator_sid = sid
+                return True, "Success"
+            return False, "Room already has an operator."
             
-        if role == 'player' and team_id:
-            if team_id not in room.teams:
-                room.teams[team_id] = Team(id=team_id, name=f"Team {team_id}")
+        if role == 'player':
+            # Initialize default teams if none exist
+            if not room.teams:
+                room.teams['A'] = Team(id='A', name="Team ALPHA")
+                room.teams['B'] = Team(id='B', name="Team BETA")
+
+            # Sequential filling logic:
+            sorted_team_ids = sorted(room.teams.keys())
+            target_team = None
             
-            # Max 3 players per team
-            if len(room.teams[team_id].players) >= 3:
-                return False
-                
-            player = Player(sid=sid, name=name, team_id=team_id, avatar=avatar) 
-            room.teams[team_id].players[sid] = player
+            for tid in sorted_team_ids:
+                team = room.teams[tid]
+                if len(team.players) < room.max_players_per_team:
+                    target_team = team
+                    break
+            
+            if not target_team:
+                return False, "All teams are full."
+
+            player = Player(sid=sid, name=name, team_id=target_team.id, avatar=avatar) 
+            target_team.players[sid] = player
+            return True, "Success"
+        return False, "Invalid role."
+
+    def add_team(self, room_id: str, team_id: str, team_name: str) -> bool:
+        """Allow hacker to add a new team to the room"""
+        room = self.rooms.get(room_id)
+        if not room:
+            return False
+        
+        if team_id in room.teams:
+            return False
+            
+        room.teams[team_id] = Team(id=team_id, name=team_name)
+        return True
+
+    def set_max_players(self, room_id: str, count: int) -> bool:
+        """Set the maximum members allowed per team"""
+        room = self.rooms.get(room_id)
+        if room and 1 <= count <= 5: # Constraints: 1 to 5 members
+            room.max_players_per_team = count
+            return True
+        return False
+
+    def set_not_lockout_time(self, room_id: str, seconds: int) -> bool:
+        """Set the seconds before round end where NOT gates are disabled"""
+        room = self.rooms.get(room_id)
+        if room and 0 <= seconds <= 30:
+            room.not_lockout_time = seconds
             return True
         return False
 
@@ -142,17 +196,14 @@ class GameManager:
             if room_id and room.id != room_id:
                 continue
                 
-            # Check time remaining
-            if room.state == 'PLAYING':
-                time_remaining = room.current_round_end_time - time.time()
-                if time_remaining <= 5:
-                    return None  # Too late to apply NOT
-            
-            # Find the team of the requester
-            requester_team = None
-            # Find requester team
             requester_team = None
             is_operator = (room.operator_sid == operator_sid)
+            
+            # Check time remaining
+            if room.state == 'PLAYING' and not is_operator:
+                time_remaining = room.current_round_end_time - time.time()
+                if time_remaining <= room.not_lockout_time:
+                    return None  # Too late to apply NOT
             
             if not is_operator:
                 for team in room.teams.values():
@@ -197,6 +248,12 @@ class GameManager:
             if is_rival_interaction:
                 requester_team.score = max(0, requester_team.score - 1)
                 requester_team.not_gates_used += 1
+                requester_team.last_round_penalty += 1
+                target_team.was_sabotaged = True
+            
+            # If Operator applies it, also mark as sabotaged (Bonus applies)
+            if is_operator:
+                target_team.was_sabotaged = True
                 
             return room
                         
@@ -256,7 +313,11 @@ class GameManager:
                 if real_output == 1 and all(v == 1 for v in player_votes):
                     team.solved_current_round = True
                     gate_score = GATE_SCORES.get(gate_type, 2)
-                    team.score += gate_score
+                    bonus = 0.5 if team.was_sabotaged else 0
+                    
+                    team.last_round_base = gate_score
+                    team.last_round_bonus = bonus
+                    # DEFERRED SCORING: team.score += (gate_score + bonus)
                     return team
             
             else:
@@ -270,7 +331,11 @@ class GameManager:
                 if all(v == real_output for v in player_votes):
                     team.solved_current_round = True
                     gate_score = GATE_SCORES.get(gate_type, 2)
-                    team.score += gate_score
+                    bonus = 0.5 if team.was_sabotaged else 0
+                    
+                    team.last_round_base = gate_score
+                    team.last_round_bonus = bonus
+                    # DEFERRED SCORING: team.score += (gate_score + bonus)
                     return team
             
         return None
@@ -302,11 +367,15 @@ class GameManager:
                         if real_output_bool:
                             team.solved_current_round = True
                             gate_score = GATE_SCORES.get(gate_type, 2)
-                            team.score += gate_score
+                            bonus = 0.5 if team.was_sabotaged else 0
+                            
+                            team.last_round_base = gate_score
+                            team.last_round_bonus = bonus
+                            # DEFERRED SCORING: Do not add to team.score yet
                             return room, team
                         else:
-                            # Penalty for wrong attempt to avoid spamming
-                            team.score = max(0, team.score - 1)
+                            # Penalty for wrong attempt
+                            team.last_round_penalty += 1 
                             return room, None
         return None, None
 
@@ -323,6 +392,10 @@ class GameManager:
             team.solved_current_round = False
             team.last_round_result = None  # Clear previous result
             team.not_gates_used = 0
+            team.was_sabotaged = False
+            team.last_round_base = 0
+            team.last_round_bonus = 0
+            team.last_round_penalty = 0
         
         # Assign gates based on game mode
         self.assign_gates(room)
@@ -377,6 +450,62 @@ class GameManager:
             logic_inputs.append(logic_value)
         
         return gate_func(logic_inputs)
+
+    def finalize_round_scores(self, room_id: str):
+        """Apply scores and penalties at the end of the round"""
+        room = self.rooms.get(room_id)
+        if not room:
+            return
+            
+        for team in room.teams.values():
+            # Apply penalties (Sabotage + Wrong Attempts)
+            total_penalty = team.last_round_penalty
+            
+            # If failed to solve, add failure penalty (2 pts)
+            if not team.solved_current_round:
+                 total_penalty += 2
+                 team.last_round_result = "failed"
+            else:
+                 team.last_round_result = "success"
+            
+            # Update Score
+            round_total = team.last_round_base + team.last_round_bonus - total_penalty
+            team.score = max(0, team.score + round_total)
+            
+            # Update the penalty stat to include the failure penalty for display
+            team.last_round_penalty = total_penalty
+
+    def reset_scores(self, room_id: str):
+        """Reset scores for all teams in the room"""
+        room = self.rooms.get(room_id)
+        if room:
+            for team in room.teams.values():
+                team.score = 0
+                team.last_round_base = 0
+                team.last_round_bonus = 0
+                team.last_round_penalty = 0
+                team.last_round_result = None
+            return True
+        return False
+
+    def toggle_team_chat(self, room_id: str, team_id: str):
+        """Toggle chat permission for a specific team"""
+        room = self.rooms.get(room_id)
+        if room:
+            team = room.teams.get(team_id)
+            if team:
+                team.chat_enabled = not team.chat_enabled
+                return True, team.chat_enabled
+        return False, False
+        
+    def can_chat(self, room_id: str, sid: str):
+        """Check if a player can send chat messages"""
+        room = self.rooms.get(room_id)
+        if room:
+            for team in room.teams.values():
+                if sid in team.players:
+                    return team.chat_enabled
+        return False
 
     # def check_logic(self, room_id: str):
     #     room = self.rooms.get(room_id)

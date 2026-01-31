@@ -25,14 +25,13 @@ const Lobby = () => {
         useGameStore.getState().setPlayer({
             name,
             role,
-            team_id: role === 'player' ? teamId : null,
+            team_id: null, // Let server assign
             avatar
         });
         socket.emit('join_game', {
             room_id: roomId,
             name,
             role,
-            team_id: role === 'player' ? teamId : null,
             avatar
         });
     };
@@ -135,21 +134,13 @@ const Lobby = () => {
                                             className="mb-4"
                                         >
                                             <h6 className="text-info text-uppercase fw-bold mb-3">4. Unit Assignment</h6>
-                                            <div className="d-flex gap-2">
-                                                <Button
-                                                    variant={teamId === 'A' ? 'success' : 'outline-secondary'}
-                                                    className="flex-fill py-3 fw-bold tracking-widest border-2"
-                                                    onClick={() => setTeamId('A')}
-                                                >
-                                                    TEAM ALPHA
-                                                </Button>
-                                                <Button
-                                                    variant={teamId === 'B' ? 'warning' : 'outline-secondary'}
-                                                    className="flex-fill py-3 fw-bold tracking-widest border-2"
-                                                    onClick={() => setTeamId('B')}
-                                                >
-                                                    TEAM BETA
-                                                </Button>
+                                            <div className="p-3 border border-secondary border-dashed rounded bg-black bg-opacity-20 text-center">
+                                                <div className="text-warning small fw-bold tracking-widest animate-pulse">
+                                                    [ AUTO-ASSIGNMENT PROTOCOL ACTIVE ]
+                                                </div>
+                                                <div className="text-muted x-small mt-1 uppercase">
+                                                    Units will be distributed sequentially to Alpha, Beta, etc.
+                                                </div>
                                             </div>
                                         </motion.div>
                                     )}
