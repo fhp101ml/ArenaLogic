@@ -1,142 +1,249 @@
-# ⚡ LOGIC ARENA
+# 🕹️ ArenaLogic - Multiplayer Logic Gates Game
 
-**Logic Arena** is a real-time multiplayer competitive game designed to test and sharpen logical reasoning through Boolean gate puzzles. Players work in teams to solve complex logic sequences while an operator (Hacker) manages the system and introduces hazards.
+A real-time competitive multiplayer game where teams collaborate to solve logic gate challenges. Features **full voice accessibility** for visually impaired players using AI-powered narration and voice commands.
 
-## 🎮 Game Concept
+## ✨ Features
 
-In Logic Arena, players are "Operatives" assigned to teams (Alpha/Beta). Each round, the server deals logical "cards" (0 or 1) to players. The team's collective goal depends on the active game mode and objective protocol:
+### 🎮 Core Gameplay
+- **Real-time Multiplayer**: Socket.IO powered synchronization
+- **Team-based Competition**: Up to 2 teams (Alpha/Beta) with up to 5 players each
+- **Logic Gates**: AND, OR, XOR, XNOR, NAND, NOR challenges
+- **Multiple Game Modes**:
+  - **Competitive**: Single gate for all teams
+  - **Asymmetric**: Each team gets different gates
+  - **Campaign**: Progressive gate sequences
+- **Operator Controls**: HackerDashboard for game configuration and player management
 
-- **PREDICT OUTPUT**: Guess what the logic gate will output based on the current inputs.
-- **FORCE OVERRIDE**: Manipulate the inputs (using NOT gates) so the gate outputs a `1`.
+### 🔊 Accessibility (NEW!)
+**Complete voice control system for visually impaired players:**
 
-### Logical Gates Supported
-- `AND`, `OR`, `XOR`, `XNOR`, `NAND`, `NOR`.
+- **🎤 Voice Commands**: Join games, vote, sabotage rivals - all by voice
+- **🔊 Auto-Narration**: Automatic updates on:
+  - Round starts (gate type, your card, teammates' cards)
+  - NOT gates applied (sabotage alerts)
+  - Game state changes
+- **🤖 AI Agent**: LangGraph-powered assistant with conversation memory
+- **🎛️ Operator Control**: Enable/disable accessibility per player (🔊/🔇)
+- **🌐 Multilingual**: Spanish voice support (Edge-TTS)
+- **⚙️ Local STT**: Whisper model fallback for privacy
 
-### ⚖️ Game Mechanics (v2.0)
+### 🛠️ Technical Stack
 
-#### Scoring & Hazards
-- **Deferred Scoring**: Points are calculated but hidden until the round ends ("Data Analysis" phase) to prevent spoilers.
-- **Sabotage**:
-  - Activating a **NOT** gate on a rival costs **-1 Point**.
-  - **Lockout Phase**: Sabotage is disabled during the final seconds (configurable) of a round.
-  - **Counter-Bonus**: If a team solves a gate while being sabotaged (by a rival or the Hacker), they earn **+0.5 Bonus Points**.
+**Backend:**
+- Python 3.12
+- FastAPI + Socket.IO (real-time)
+- OpenAI API (GPT-4o-mini)
+- LangGraph (AI agent framework)
+- Whisper (local STT)
+- Edge-TTS (text-to-speech)
 
-#### Hacker Controls
-The Operator (Hacker) has advanced administrative tools:
-- **Team Size**: Configurable team limits (min/max).
-- **Lockout Timer**: Adjustable "Safe Zone" before round end.
-- **Reset Protocol**: Ability to wipe all scores and restart the match.
+**Frontend:**
+- React + Vite
+- Socket.IO client
+- Zustand (state management)
+- Bootstrap 5 + Framer Motion
+- MediaRecorder API (voice recording)
 
----
+## 📖 Documentation
 
-### ♿ Accessibility Features
-- **Secure Team Chat**: A dedicated, text-based communication channel for each team.
-  - **Hacker Controlled**: The operator can toggle this feature per team (e.g., for hearing-impaired players).
-  - **High Contrast**: Optimized text colors (Cyan/White) for readability in low-light environments.
-- **Visual Feedback**: Enhanced "LED-style" glowing buttons and large status text for clear voting confirmation.
+See **[MANUAL.md](./MANUAL.md)** for complete technical documentation including:
+- WebSocket architecture
+- Voice accessibility system
+- AI agent implementation
+- Game mechanics
 
-### 🎨 Visual Enhancements
-- **Realistic Logic Symbols**: The game now uses standard **IEC/ANSI SVG symbols** for all gates (AND, OR, XOR, NOT, NAND, NOR, XNOR).
-  - Dynamic shapes that adapt to input activity.
-  - "Active" glow effects when the gate outputs a `1`.
-- **Pulse Animations**: Status indicators (like "Awaiting Team") pulse to draw attention during critical phases.
-
----
-
-
-## 🛠️ Technical Architecture
-
-The project is built with a modern full-stack web architecture optimized for real-time interaction.
-
-### Backend (Python / FastAPI)
-- **Framework**: `FastAPI` (ASGI) for the REST API and server orchestration.
-- **Real-time Engine**: `python-socketio` for asynchronous WebSocket communication.
-- **Game Engine**: A custom `GameManager` class that handles:
-    - Room and team management.
-    - Real-time logical evaluations.
-    - Automatic round transitions and timers.
-    - Complex hazard logic (NOT gate sabotages).
-
-### Frontend (React / Vite)
-- **Framework**: `React 19` with `Vite` for ultra-fast development and bundling.
-- **UI Library**: `React-Bootstrap` + `Vanilla CSS` for a premium "Cyber/High-Tech" aesthetic.
-- **State Management**: `Zustand` for lightweight, reactive game state handling.
-- **Animations**: `Framer Motion` for smooth transitions and HUD effects.
-- **Client Networking**: `socket.io-client` for persistent dual-way communication.
-
----
-
-## 📡 WebSocket Implementation
-
-The game relies heavily on WebSockets for sub-100ms latency. The communication protocol is defined as follows:
-
-### Client -> Server Events
-- `join_game`: Player identification and team assignment.
-- `start_round`: (Operator only) Initiates the logic sequence.
-- `player_input`: Casting a vote or confirming a setup.
-- `apply_not`: Triggering a NOT gate on a teammate or rival.
-- `set_game_mode` / `set_target_gate`: Configuration of the round logic.
-- `reset_scores`: (Operator only) Wiping team progress.
-
-### Server -> Client Events
-- `game_state`: Broadcasts the full room status to all connected clients (teams, inputs, scores, timer).
-- `round_result`: Notification of success or failure for a specific unit.
-- `error`: System alerts (e.g., "Cannot apply NOT gate yet").
-
----
-
-## 🚀 Getting Started
+## 🚀 Quick Start
 
 ### Prerequisites
-- Python 3.10+
+- Python 3.12+
 - Node.js 18+
+- OpenAI API key
 
-### Setup
+### Installation
 
-1. **Backend**:
-   ```bash
-   cd backend
-   python -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
-   python main.py
-   ```
+1. **Clone repository**
+```bash
+git clone https://github.com/yourusername/ArenaLogic.git
+cd ArenaLogic
+```
 
-2. **Frontend**:
-   ```bash
-   cd frontend
-   npm install
-   npm run dev
-   ```
+2. **Backend setup**
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
 
-Access the terminal at `http://localhost:5173`.
+3. **Configure environment**
+```bash
+# backend/.env
+OPENAI_API_KEY=your_key_here
+```
 
----
+4. **Frontend setup**
+```bash
+cd frontend
+npm install
+```
 
-## 🌐 Remote Access & Tunneling (Serveo)
+### Running Locally
 
-To play with users outside your local network, you can use **Serveo** to create a secure tunnel.
+**Terminal 1 - Backend:**
+```bash
+cd backend
+python main.py
+# Runs on http://localhost:5000
+```
 
-### 1. Vite Configuration
-Vite requires explicit authorization for external hosts. Ensure `frontend/vite.config.js` includes the `allowedHosts` setting:
+**Terminal 2 - Frontend:**
+```bash
+cd frontend
+npm run dev
+# Runs on http://localhost:5173
+```
 
+**Terminal 3 - External Access (Optional):**
+```bash
+ssh -R 80:localhost:5173 serveo.net
+# Provides public URL for external testing
+```
+
+## 🎮 How to Play
+
+### As Player
+1. Open browser → `http://localhost:5173`
+2. Enter name and avatar
+3. Join room `demo-room`
+4. **Optional**: Enable HACKER_MODE (👁️) for voice control
+5. Wait for operator to start round
+6. Vote on gate output (0 or 1)
+7. Sabotage rivals with NOT gates (costs points)
+
+### As Operator
+1. Join as operator
+2. Configure game mode, gates, timers
+3. Click "Initiate Sequence" to start round
+4. **Enable accessibility** (🔊) for visually impaired players
+5. Monitor teams and manage sabotage
+
+### Voice Commands (Accessibility Mode)
+- **Register**: "Mi nombre es Fernando" → "Confirmar"
+- **Vote**: "Voto uno" / "Mi voto es cero"
+- **Sabotage**: "Sabotea a Alex"
+- **Status**: "¿Qué puerta tengo?" / "¿Cuál es mi carta?"
+
+## 🏗️ Architecture
+
+```
+┌─────────────────────────────────────────────────────┐
+│                     Frontend                         │
+│  React + Socket.IO Client + AccessibilityControl    │
+└──────────────┬──────────────────────────────────────┘
+               │ WebSocket (Socket.IO)
+               │ Voice Data (Audio Blobs)
+┌──────────────┴──────────────────────────────────────┐
+│                     Backend                          │
+│  ┌─────────────────────────────────────────────┐   │
+│  │  FastAPI + Socket.IO Server                 │   │
+│  │  • Game state management                    │   │
+│  │  • Room broadcasting                        │   │
+│  │  • Player synchronization                   │   │
+│  └─────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────┐   │
+│  │  AccessibilityManager                       │   │
+│  │  • STT (Whisper/OpenAI)                     │   │
+│  │  • TTS (Edge-TTS/OpenAI)                    │   │
+│  │  • LangGraph AI Agent (GPT-4o-mini)         │   │
+│  │  • Per-user conversation memory             │   │
+│  └─────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────┘
+```
+
+## � Project Structure
+
+```
+ArenaLogic/
+├── backend/
+│   ├── main.py              # FastAPI + Socket.IO server
+│   ├── game_manager.py      # Game logic & state
+│   ├── accessibility.py     # Voice AI system
+│   └── requirements.txt
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── GameArena.jsx          # Player view
+│   │   │   ├── HackerDashboard.jsx    # Operator panel
+│   │   │   └── AccessibilityControl.jsx # Voice UI
+│   │   ├── store/
+│   │   │   └── gameStore.js           # Zustand state
+│   │   └── context/
+│   │       └── SocketContext.jsx      # Socket.IO provider
+│   └── package.json
+├── MANUAL.md            # Technical documentation
+└── README.md
+```
+
+## 🔧 Configuration
+
+### Game Settings (Operator)
+- **Max Players**: 1-5 per team
+- **Round Duration**: 5-60 seconds
+- **NOT Lockout**: 0-30s before end (prevents last-second sabotage)
+- **Target Gate**: Select logic gate challenge
+- **Logic Mode**: 
+  - `predict`: Vote on final output (0 or 1)
+  - `open`: Force output to 1
+
+### Accessibility Settings
+- **Per-Player Control**: Operator enables voice narration individually
+- **Auto-Narration**: Triggered on game events (configurable)
+- **Voice Model**: Whisper (local) or OpenAI API
+- **TTS Voice**: Edge-TTS Spanish (configurable)
+
+## 🎯 Scoring System
+
+- **Base Score**: 10 points per correct gate
+- **Speed Bonus**: +5 for solving in first 50% of time
+- **Sabotage Penalty**: -1 point to apply NOT gate to rival
+- **Sabotage Survival**: +0.5 if you were sabotaged but still solved
+
+## 🌐 External Access
+
+Use Serveo for external testing:
+```bash
+ssh -R 80:localhost:5173 serveo.net
+```
+
+**Vite Configuration** (`vite.config.js`):
 ```javascript
 export default defineConfig({
-  plugins: [react()],
   server: {
-    allowedHosts: [
-      'your-custom-subdomain.serveousercontent.com'
-    ]
+    host: '0.0.0.0',  // Allow external connections
+    port: 5173
   }
 })
 ```
 
-### 2. Launch Tunnel
-Once the dev server is running, forward the port using SSH:
-```bash
-ssh -R your-custom-subdomain:80:localhost:5173 serveo.net
-```
+## 🤝 Contributing
+
+Contributions welcome! Please:
+1. Fork repository
+2. Create feature branch
+3. Test thoroughly (especially accessibility features)
+4. Submit pull request
+
+## 📄 License
+
+MIT License - See LICENSE file
+
+## 🙏 Acknowledgments
+
+- OpenAI for GPT-4o-mini and Whisper
+- LangGraph for agent framework
+- Socket.IO for real-time sync
+- Edge-TTS for accessible voice synthesis
 
 ---
 
-*Developed by Antigravity*
+**Developed for educational purposes and accessibility innovation.**

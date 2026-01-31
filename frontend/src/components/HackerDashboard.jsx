@@ -1,8 +1,10 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Container, Row, Col, Card, Button, Form, Badge, ProgressBar, InputGroup } from 'react-bootstrap';
+import { useSocket } from '../context/SocketContext';
 
 const HackerDashboard = ({ gameState, onStartRound, onToggleNot, onKickPlayer, onSetGameMode, onSetTargetGate, onSetTargetGates, onSetLogicMode, onSetMaxPlayers, onSetNotLockout, onResetScores, onToggleChat }) => {
+    const { socket } = useSocket();
     const [roundDuration, setRoundDuration] = React.useState(30);
     const [timeLeft, setTimeLeft] = React.useState(0);
 
@@ -328,15 +330,26 @@ const HackerDashboard = ({ gameState, onStartRound, onToggleNot, onKickPlayer, o
                                                                     [KICK]
                                                                 </Button>
                                                             </div>
-                                                            <Button
-                                                                onClick={() => onToggleNot(sid)}
-                                                                disabled={timeLeft > 0 && timeLeft <= 5}
-                                                                variant={p.has_not_gate ? "danger" : "outline-success"}
-                                                                size="sm"
-                                                                className={`p-2 fw-black text-uppercase x-small border-2 ${p.has_not_gate ? 'shadow-sm animate-pulse' : ''}`}
-                                                            >
-                                                                {timeLeft > 0 && timeLeft <= 5 ? 'Time_Lock' : p.has_not_gate ? 'Hazard_On' : 'Apply_NOT'}
-                                                            </Button>
+                                                            <div className="d-flex gap-2">
+                                                                <Button
+                                                                    onClick={() => socket?.emit('toggle_accessibility', { room_id: gameState.id, target_sid: sid })}
+                                                                    variant={p.accessibility_enabled ? "success" : "outline-secondary"}
+                                                                    size="sm"
+                                                                    className="p-2 fw-black x-small border-2"
+                                                                    title={`Accessibility ${p.accessibility_enabled ? 'ON' : 'OFF'}`}
+                                                                >
+                                                                    {p.accessibility_enabled ? '🔊' : '🔇'}
+                                                                </Button>
+                                                                <Button
+                                                                    onClick={() => onToggleNot(sid)}
+                                                                    disabled={timeLeft > 0 && timeLeft <= 5}
+                                                                    variant={p.has_not_gate ? "danger" : "outline-success"}
+                                                                    size="sm"
+                                                                    className={`p-2 fw-black text-uppercase x-small border-2 ${p.has_not_gate ? 'shadow-sm animate-pulse' : ''}`}
+                                                                >
+                                                                    {timeLeft > 0 && timeLeft <= 5 ? 'Time_Lock' : p.has_not_gate ? 'Hazard_On' : 'Apply_NOT'}
+                                                                </Button>
+                                                            </div>
                                                         </Card.Body>
                                                     </Card>
                                                 ))}

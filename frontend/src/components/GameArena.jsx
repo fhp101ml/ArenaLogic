@@ -104,6 +104,7 @@ const GameArena = () => {
     };
 
     if (!gameState) return <div className="text-white flex items-center justify-center h-screen bg-black">Initializing Uplink...</div>;
+    if (!player) return <div className="text-white flex items-center justify-center h-screen bg-black">Loading Player Data...</div>;
 
     const toggleChat = (teamId) => {
         if (!socket || player.role !== 'operator') return;

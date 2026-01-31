@@ -9,23 +9,29 @@ const AVATARS = ['🦁', '🐯', '🐻', '🐲', '🦄', '🤖', '👽', '👻',
 
 const Lobby = () => {
     const { socket } = useSocket();
-    const [name, setName] = useState('');
+    const { draftProfile, setDraftProfile, setPlayer } = useGameStore();
+
+    // Destructure from store state
+    const { name, avatar, role } = draftProfile;
+
     const [roomId, setRoomId] = useState('demo-room');
-    const [role, setRole] = useState('player');
     const [teamId, setTeamId] = useState('A');
-    const [avatar, setAvatar] = useState(AVATARS[0]);
     const nameInputRef = useRef(null);
 
     useEffect(() => {
         nameInputRef.current?.focus();
     }, []);
 
+    const updateProfile = (field, value) => {
+        setDraftProfile({ [field]: value });
+    };
+
     const joinGame = () => {
         if (!name || !socket) return;
-        useGameStore.getState().setPlayer({
+        setPlayer({
             name,
             role,
-            team_id: null, // Let server assign
+            team_id: null,
             avatar
         });
         socket.emit('join_game', {
@@ -67,7 +73,7 @@ const Lobby = () => {
                                             size="lg"
                                             placeholder="ENTER CODENAME"
                                             value={name}
-                                            onChange={(e) => setName(e.target.value)}
+                                            onChange={(e) => updateProfile('name', e.target.value)}
                                             onKeyPress={handleKeyPress}
                                             className="bg-dark border-secondary text-light"
                                         />
@@ -88,7 +94,7 @@ const Lobby = () => {
                                                 key={av}
                                                 variant={avatar === av ? 'info' : 'outline-secondary'}
                                                 className={`p-2 d-flex align-items-center justify-center fs-4 ${avatar === av ? 'shadow-sm' : ''}`}
-                                                onClick={() => setAvatar(av)}
+                                                onClick={() => updateProfile('avatar', av)}
                                                 style={{ width: '45px', height: '45px', borderStyle: 'dashed' }}
                                             >
                                                 {av}
@@ -105,7 +111,7 @@ const Lobby = () => {
                                         <Col xs={6}>
                                             <Card
                                                 className={`p-3 text-center transition-all cursor-pointer border-2 ${role === 'player' ? 'bg-primary bg-opacity-10 border-primary' : 'bg-transparent border-secondary opacity-50'}`}
-                                                onClick={() => setRole('player')}
+                                                onClick={() => updateProfile('role', 'player')}
                                             >
                                                 <div className="fs-1 mb-2">⚡</div>
                                                 <div className="fw-bold text-light">OPERATIVE</div>
@@ -115,7 +121,7 @@ const Lobby = () => {
                                         <Col xs={6}>
                                             <Card
                                                 className={`p-3 text-center transition-all cursor-pointer border-2 ${role === 'operator' ? 'bg-danger bg-opacity-10 border-danger' : 'bg-transparent border-secondary opacity-50'}`}
-                                                onClick={() => setRole('operator')}
+                                                onClick={() => updateProfile('role', 'operator')}
                                             >
                                                 <div className="fs-1 mb-2">👨‍💻</div>
                                                 <div className="fw-bold text-light">HACKER</div>

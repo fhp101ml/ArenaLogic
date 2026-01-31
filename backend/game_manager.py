@@ -35,6 +35,7 @@ class Player:
     card_value: int = 0 # The "Card" (0 or 1) dealt by server
     vote_value: Optional[int] = None # The Player's Vote: 0 or 1
     has_not_gate: bool = False # If true, input is inverted
+    accessibility_enabled: bool = False # Voice narration enabled by operator
 
 @dataclass
 class Team:

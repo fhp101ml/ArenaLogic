@@ -1,4 +1,5 @@
 from game_manager import GameManager
+from accessibility import AccessibilityManager
 import asyncio
 import sys
 import time
@@ -18,6 +19,10 @@ app.add_middleware(
 socket_app = socketio.ASGIApp(sio, app)
 
 game_manager = GameManager()
+
+# Initialize accessibility AFTER sio is defined
+# This is done in the startup event handler below
+accessibility = None
 
 @app.get("/")
 async def root():
@@ -173,6 +178,33 @@ async def toggle_chat(sid, data):
         await broadcast_room_state(room_id)
 
 @sio.event
+async def toggle_accessibility(sid, data):
+    """Operator toggles accessibility (voice narration) for a specific player"""
+    room_id = data.get('room_id')
+    target_sid = data.get('target_sid')
+    room = game_manager.rooms.get(room_id)
+    
+    if not room:
+        await sio.emit('error', {'message': 'Room not found'}, to=sid)
+        return
+    
+    # Only operator can toggle accessibility
+    if room.operator_sid != sid:
+        await sio.emit('error', {'message': 'UNAUTHORIZED: Only operator can toggle accessibility'}, to=sid)
+        return
+    
+    # Find player and toggle
+    for team in room.teams.values():
+        if target_sid in team.players:
+            player = team.players[target_sid]
+            player.accessibility_enabled = not player.accessibility_enabled
+            print(f"[ACCESSIBILITY] Player {player.name} accessibility: {player.accessibility_enabled}")
+            await broadcast_room_state(room_id)
+            return
+    
+    await sio.emit('error', {'message': 'Player not found'}, to=sid)
+
+@sio.event
 async def chat_message(sid, data):
     """Player sends a chat message to their team"""
     room_id = data.get('room_id')
@@ -253,6 +285,52 @@ async def upload_card_image(sid, data):
             room.custom_card_1 = image_data
         await broadcast_room_state(room_id)
 
+@sio.event
+async def voice_input(sid, data):
+    """
+    Receives audio blob (or text override) from client.
+    data: { 'audio': bytearray/None, 'text': str/None }
+    """
+    audio_data = data.get('audio') # Bytes or None
+    text_input = data.get('text')
+    is_auto_narration = data.get('isAutoNarration', False)
+    
+    # Check if player has accessibility enabled
+    player_has_access = False
+    for room in game_manager.rooms.values():
+        for team in room.teams.values():
+            if sid in team.players:
+                player_has_access = team.players[sid].accessibility_enabled
+                break
+    
+    # Skip auto-narration for players without accessibility enabled
+    if is_auto_narration and not player_has_access:
+        return
+    
+    # Process with Agent
+    context = data.get('context')
+    result = await accessibility.process_command(sid, audio_bytes=audio_data, text_input=text_input, context=context)
+    
+    if result:
+        # Emit response back to client
+        # result has { text, audio, client_actions }
+        await sio.emit('voice_response', result, to=sid)
+        
+        # If there are client actions (e.g. fill form), emit them separately or as part of response
+        # The client needs to handle 'voice_response' and look for actions
+        if result.get('client_actions'):
+            print(f"[MAIN DEBUG] Emitting {len(result['client_actions'])} agent_action_client events to {sid}")
+            for action in result['client_actions']:
+                print(f"[MAIN DEBUG] Emitting action: {action}")
+                await sio.emit('agent_action_client', action, to=sid)
+        
+        # Broadcast room state if player made a state-changing action (vote, etc)
+        for room in game_manager.rooms.values():
+            for team in room.teams.values():
+                if sid in team.players:
+                    await broadcast_room_state(room.id)
+                    break
+
 async def broadcast_room_state(room_id):
     room = game_manager.rooms.get(room_id)
     if room:
@@ -294,7 +372,8 @@ async def broadcast_room_state(room_id):
                             'card_value': p.card_value,
                             'vote_value': p.vote_value,
                             'has_not_gate': p.has_not_gate,
-                            'avatar': p.avatar
+                            'avatar': p.avatar,
+                            'accessibility_enabled': p.accessibility_enabled
                         } for pid, p in t.players.items()
                     }
                 } for tid, t in room.teams.items()
@@ -365,6 +444,9 @@ async def terminal_reader():
 
 @app.on_event("startup")
 async def startup_event():
+    global accessibility
+    accessibility = AccessibilityManager(game_manager, sio)
+    print("✅ AccessibilityManager initialized with Socket.IO support")
     asyncio.create_task(terminal_reader())
 
 async def game_timer(room_id):
