@@ -20,12 +20,24 @@ A real-time competitive multiplayer game where teams collaborate to solve logic 
 - **🎤 Voice Commands**: Join games, vote, sabotage rivals - all by voice
 - **🔊 Auto-Narration**: Automatic updates on:
   - Round starts (gate type, your card, teammates' cards)
+  - Round ends (result, score, rival team status)
   - NOT gates applied (sabotage alerts)
   - Game state changes
+- **🔔 Audio Alerts**:
+  - Countdown beeps in last 5 seconds of each round
+  - Success fanfare on round win
+  - Failure sound on round loss
 - **🤖 AI Agent**: LangGraph-powered assistant with conversation memory
+  - Never suggests which vote to choose (player decides)
+  - Avatar name recognition (rayo→⚡, gota→💧, león→🦁)
 - **🎛️ Operator Control**: Enable/disable accessibility per player (🔊/🔇)
 - **🌐 Multilingual**: Spanish voice support (Edge-TTS)
 - **⚙️ Local STT**: Whisper model fallback for privacy
+
+### 🎮 Operator Features
+- **Reset Scores**: Clear all team scores
+- **Reset Game**: Full restart (round 0, scores 0, state reset)
+- **Real-time Timer**: Live countdown broadcast every second
 
 ### 🛠️ Technical Stack
 

@@ -168,6 +168,15 @@ async def reset_scores(sid, data):
         await broadcast_room_state(room_id)
 
 @sio.event
+async def reset_game(sid, data):
+    """Operator completely resets game to round 0, scores 0"""
+    room_id = data.get('room_id')
+    room = game_manager.rooms.get(room_id)
+    if room and room.operator_sid == sid:
+        game_manager.reset_game(room_id)
+        await broadcast_room_state(room_id)
+
+@sio.event
 async def toggle_chat(sid, data):
     """Operator toggles chat for a specific team"""
     room_id = data.get('room_id')
@@ -474,6 +483,8 @@ async def game_timer(room_id):
             await broadcast_room_state(room_id)
             break
         
+        # Broadcast timer update every second for frontend to track countdown
+        await broadcast_room_state(room_id)
         await asyncio.sleep(1)
 
 if __name__ == "__main__":

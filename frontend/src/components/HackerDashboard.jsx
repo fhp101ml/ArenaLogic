@@ -145,12 +145,22 @@ const HackerDashboard = ({ gameState, onStartRound, onToggleNot, onKickPlayer, o
                                     <hr className="border-secondary opacity-25 my-4" />
                                     <Button
                                         variant="outline-danger"
-                                        className="w-100 fw-bold tracking-widest text-uppercase"
+                                        className="w-100 fw-bold tracking-widest text-uppercase mb-2"
                                         onClick={onResetScores}
                                         disabled={gameState.state === 'PLAYING'}
                                     >
                                         ⚠️ RESET ALL SCORES
                                     </Button>
+                                    <Button
+                                        variant="danger"
+                                        className="w-100 fw-bold tracking-widest text-uppercase"
+                                        onClick={() => socket?.emit('reset_game', { room_id: gameState.id })}
+                                    >
+                                        🔄 RESET GAME (Round 0)
+                                    </Button>
+                                    <Form.Text className="text-danger opacity-75 x-small mt-1 d-block text-center">
+                                        Resets round to 0 and clears all scores
+                                    </Form.Text>
                                 </Form.Group>
 
                                 {/* Target Gate Selection (Competitive Mode - SINGLE) */}

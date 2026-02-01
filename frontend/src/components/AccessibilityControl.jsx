@@ -99,6 +99,103 @@ const AccessibilityControl = () => {
         }
 
         lastNotGatesRef.current = currentNotGates;
+
+        // Detect round end and narrate results
+        if (gameState.state === 'FINISHED' && lastNarratedRoundRef.current === gameState.round_number) {
+            // Mark as narrated so we don't repeat
+            lastNarratedRoundRef.current = -999;
+
+            // Find my team
+            let myTeam = null;
+            let myTeamId = null;
+            for (const [teamId, team] of Object.entries(gameState.teams || {})) {
+                if (team.players[socket.id]) {
+                    myTeam = team;
+                    myTeamId = teamId;
+                    break;
+                }
+            }
+
+            if (myTeam) {
+                const success = myTeam.last_round_result === 'success';
+
+                // Build result narration
+                let resultText = success
+                    ? `¡Éxito! Tu equipo ha ganado esta ronda.`
+                    : `Ronda fallida. Tu equipo no logró el objetivo.`;
+
+                // Add score info
+                resultText += ` Puntuación actual: ${myTeam.score} puntos.`;
+
+                // Add rival teams info
+                const rivalTeams = Object.entries(gameState.teams || {})
+                    .filter(([id]) => id !== myTeamId)
+                    .map(([id, team]) => {
+                        const hasPlayers = Object.keys(team.players || {}).length > 0;
+                        if (!hasPlayers) return null;
+                        const rivalResult = team.last_round_result === 'success' ? 'ganó' : 'perdió';
+                        return `El equipo rival ${rivalResult} con ${team.score} puntos`;
+                    })
+                    .filter(Boolean);
+
+                if (rivalTeams.length > 0) {
+                    resultText += ` ${rivalTeams.join('. ')}.`;
+                }
+
+                // Play success/failure sound effect
+                const playResultSound = (isSuccess) => {
+                    try {
+                        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+                        if (isSuccess) {
+                            // Applause-like rising tones
+                            for (let i = 0; i < 5; i++) {
+                                setTimeout(() => {
+                                    const osc = audioContext.createOscillator();
+                                    const gain = audioContext.createGain();
+                                    osc.connect(gain);
+                                    gain.connect(audioContext.destination);
+                                    osc.frequency.value = 400 + (i * 100);
+                                    osc.type = 'sine';
+                                    gain.gain.setValueAtTime(0.2, audioContext.currentTime);
+                                    gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+                                    osc.start(audioContext.currentTime);
+                                    osc.stop(audioContext.currentTime + 0.15);
+                                }, i * 100);
+                            }
+                        } else {
+                            // Sad descending tone
+                            const osc = audioContext.createOscillator();
+                            const gain = audioContext.createGain();
+                            osc.connect(gain);
+                            gain.connect(audioContext.destination);
+                            osc.frequency.setValueAtTime(400, audioContext.currentTime);
+                            osc.frequency.exponentialRampToValueAtTime(150, audioContext.currentTime + 0.5);
+                            osc.type = 'sine';
+                            gain.gain.setValueAtTime(0.3, audioContext.currentTime);
+                            gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+                            osc.start(audioContext.currentTime);
+                            osc.stop(audioContext.currentTime + 0.5);
+                        }
+                    } catch (e) {
+                        console.error("Result sound error:", e);
+                    }
+                };
+
+                // Play sound first
+                playResultSound(success);
+
+                // Then narrate after a short delay
+                setTimeout(() => {
+                    socket.emit('voice_input', {
+                        audio: null,
+                        text: resultText,
+                        context: { view: 'IN_GAME', state: gameState },
+                        isAutoNarration: true
+                    });
+                }, 600);
+            }
+        }
     }, [gameState, socket, isActive]);
 
     const startListening = async () => {

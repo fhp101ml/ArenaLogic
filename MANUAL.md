@@ -8,6 +8,9 @@ Complete technical documentation covering WebSocket architecture, voice accessib
 
 1. [System Architecture](#system-architecture)
 2. [WebSocket Communication](#websocket-communication)
+   - Frontend State Updates
+   - Vote Flow
+   - Form Auto-Fill Flow
 3. [Voice Accessibility System](#voice-accessibility-system)
 4. [AI Agent Implementation](#ai-agent-implementation)
 5. [Game Mechanics](#game-mechanics)
@@ -150,6 +153,298 @@ async def broadcast_room_state(room_id):
             }
         }
         await sio.emit('game_state', serialized_state, room=room_id)
+```
+
+### Frontend State Updates
+
+ArenaLogic uses a **unidirectional data flow** pattern for UI updates: Backend (authoritative) → Socket.IO → Zustand → React Components.
+
+#### Architecture Overview
+
+```mermaid
+graph TB
+    A[User Action<br/>Vote/Voice/Form] --> B[Socket.IO Emit]
+    B --> C[Backend Handler<br/>main.py]
+    C --> D[GameManager<br/>Update RAM State]
+    D --> E[broadcast_room_state]
+    E --> F[Socket.IO Broadcast<br/>game_state event]
+    F --> G[Frontend App.jsx<br/>Event Listener]
+    G --> H[Zustand Store<br/>setGameState]
+    H --> I[React Components<br/>Auto Re-render]
+```
+
+#### Flow 1: Vote Update (UI or Voice)
+
+**Step-by-step Example:**
+
+1. **User Action** (GameArena.jsx):
+```javascript
+// Regular click
+const handleVote = (value) => {
+    socket?.emit('player_input', { vote: value });
+};
+
+// Or voice command: "Voto cero"
+// → AccessibilityControl emits voice_input
+// → Backend agent executes vote tool
+```
+
+2. **Backend Processing** (main.py):
+```python
+@sio.on('player_input')
+async def handle_player_input(sid, data):
+    vote = data.get('vote')
+    room = game_manager.set_input(sid, vote)  # Updates RAM
+    if room:
+        await broadcast_room_state(room.id)  # Broadcasts to all
+```
+
+3. **Broadcast Function** (main.py):
+```python
+async def broadcast_room_state(room_id):
+    room = game_manager.rooms.get(room_id)
+    serialized = {
+        'teams': {
+            'A': {
+                'players': {
+                    'sid123': {'vote_value': 0, ...},  # ← Updated
+                    'sid456': {'vote_value': None, ...}
+                }
+            }
+        }
+    }
+    await sio.emit('game_state', serialized, room=room_id)
+```
+
+4. **Frontend Reception** (App.jsx):
+```javascript
+socket.on('game_state', (state) => {
+    setGameState(state);  // Zustand update → triggers re-render
+});
+```
+
+5. **Component Re-render** (GameArena.jsx):
+```javascript
+const { gameState } = useGameStore();  // Auto-subscribe
+
+// React detects gameState change
+const myPlayer = findMyPlayer(gameState);
+const hasVoted = myPlayer.vote_value !== null;  // ← UI updates
+```
+
+**Complete Flow Diagram:**
+
+```
+User clicks "Vote 0"
+    ↓
+emit('player_input', {vote: 0})
+    ↓
+Backend: game_manager.set_input(sid, 0)  [RAM updated]
+    ↓
+broadcast_room_state(room_id)
+    ↓
+emit('game_state', {...}) → ALL clients in room
+    ↓
+App.jsx: setGameState(newState)  [Zustand updated]
+    ↓
+GameArena: gameState changed → React re-renders
+    ↓
+Vote button disabled ✅ / Vote badge shows "0" ✅
+```
+
+---
+
+#### Flow 2: Form Auto-Fill (Voice)
+
+**Step-by-step Example:**
+
+1. **User Voice** (AccessibilityControl.jsx):
+```javascript
+// User: "Mi nombre es Elena y quiero el avatar del rayo"
+socket.emit('voice_input', {
+    audio: audioBlob,
+    context: { view: 'LOBBY' }
+});
+```
+
+2. **Backend AI Processing** (accessibility.py):
+```python
+async def process_command(sid, audio, context):
+    # STT
+    text = await self.stt(audio)  # "Mi nombre es Elena..."
+    
+    # LangGraph Agent
+    inputs = {"messages": [HumanMessage(content=text)]}
+    result = await self.agent_graph.ainvoke(inputs)
+    
+    # Agent executes: client_fill_form(sid, "Elena", "rayo")
+    # Tool returns: {"action": "fill_form", "name": "Elena", "avatar": "⚡"}
+    # ActionCaptureCallback captures this
+    
+    return {
+        "text": "He rellenado tu nombre como Elena...",
+        "audio": audio_b64,
+        "client_actions": [{"action": "fill_form", "name": "Elena", "avatar": "⚡"}]
+    }
+```
+
+3. **Backend Emission** (main.py):
+```python
+@sio.on('voice_input')
+async def handle_voice_input(sid, data):
+    result = await accessibility_manager.process_command(...)
+    
+    # Emit response
+    await sio.emit('voice_response', result, to=sid)
+    
+    # Emit client actions
+    if result.get('client_actions'):
+        for action in result['client_actions']:
+            await sio.emit('agent_action_client', action, to=sid)
+            # ↑ {"action": "fill_form", "name": "Elena", "avatar": "⚡"}
+```
+
+4. **Frontend Reception** (App.jsx):
+```javascript
+socket.on('agent_action_client', (action) => {
+    if (action.action === 'fill_form') {
+        useGameStore.getState().setDraftProfile({
+            name: action.name,      // "Elena"
+            avatar: action.avatar   // "⚡"
+        });
+    }
+});
+```
+
+5. **Component Re-render** (Lobby.jsx):
+```javascript
+const { draftProfile } = useGameStore();  // Auto-subscribe
+const { name, avatar } = draftProfile;
+
+return (
+    <Form.Control
+        value={name}  // ← Shows "Elena" immediately ✅
+        onChange={(e) => setDraftProfile({ name: e.target.value })}
+    />
+);
+```
+
+**Complete Flow Diagram:**
+
+```
+User: "Mi nombre es Elena avatar rayo"
+    ↓
+emit('voice_input', {audio: blob})
+    ↓
+Backend: STT → "Mi nombre es Elena avatar rayo"
+    ↓
+LangGraph Agent → client_fill_form("Elena", "rayo")
+    ↓
+Tool returns: {"action": "fill_form", "name": "Elena", "avatar": "⚡"}
+    ↓
+ActionCaptureCallback.on_tool_end captures
+    ↓
+emit('agent_action_client', {action: "fill_form", ...})
+    ↓
+App.jsx: setDraftProfile({name: "Elena", avatar: "⚡"})
+    ↓
+Lobby: draftProfile changed → React re-renders
+    ↓
+Form inputs show "Elena" and ⚡ ✅
+```
+
+---
+
+#### Global Event Handlers
+
+**Location**: `App.jsx` (mounted globally, always active)
+
+```javascript
+useEffect(() => {
+    if (!socket) return;
+
+    // Main game state synchronization
+    socket.on('game_state', (state) => {
+        setGameState(state);
+        
+        // Auto-detect player info for voice join
+        const myPlayerInfo = findPlayerInTeams(state.teams, socket.id);
+        if (myPlayerInfo) {
+            setPlayer({
+                name: myPlayerInfo.name,
+                avatar: myPlayerInfo.avatar,
+                role: myPlayerInfo.role || 'player'
+            });
+            setInGame(true);
+        }
+    });
+
+    // Agent client actions (form fill, navigation)
+    socket.on('agent_action_client', (action) => {
+        if (action.action === 'fill_form') {
+            useGameStore.getState().setDraftProfile({
+                name: action.name,
+                avatar: action.avatar
+            });
+        }
+    });
+
+    return () => {
+        socket.off('game_state');
+        socket.off('agent_action_client');
+    };
+}, [socket, setGameState, setPlayer]);
+```
+
+---
+
+#### Zustand Store Structure
+
+**Location**: `store/gameStore.js`
+
+```javascript
+export const useGameStore = create((set) => ({
+    // Game state (received from backend)
+    gameState: null,
+    player: null,
+    
+    // Draft state (form inputs before submission)
+    draftProfile: { name: '', avatar: '🦁', role: 'player' },
+    
+    // Setters
+    setGameState: (state) => set({ gameState: state }),
+    setPlayer: (player) => set({ player }),
+    setDraftProfile: (updates) => set((state) => ({ 
+        draftProfile: { ...state.draftProfile, ...updates } 
+    })),
+}));
+```
+
+**Why Zustand?**
+- ✅ No React Context boilerplate
+- ✅ Auto-subscribes components (no manual `useEffect`)
+- ✅ Can update from outside React (e.g., Socket callbacks)
+- ✅ Minimal re-renders (only subscribers update)
+
+---
+
+#### Key Design Principles
+
+1. **Single Source of Truth**: Backend `game_manager` RAM state is authoritative
+2. **Broadcast Pattern**: All clients receive same `game_state` via Socket.IO rooms
+3. **Optimistic Updates**: None (always wait for server confirmation)
+4. **State Immutability**: Zustand creates new state objects → React detects changes
+5. **Global Event Listeners**: Mounted in `App.jsx` to ensure availability in all views
+
+**Why This Works:**
+```javascript
+// ❌ BAD: Local state (can desync)
+const [votes, setVotes] = useState({});
+socket.on('player_input', ...); // Maybe missed in other components
+
+// ✅ GOOD: Centralized Zustand + Backend broadcast
+socket.on('game_state', (state) => setGameState(state));
+// → All components using useGameStore() auto-update
 ```
 
 ---

@@ -16,6 +16,63 @@ const GameArena = () => {
     const { gameState, player } = useGameStore();
     const [timeLeft, setTimeLeft] = useState(0);
     const [voteValue, setVoteValue] = useState(null);
+    const [selectedVote, setSelectedVote] = React.useState(null);
+    const isMounted = React.useRef(true);
+    const lastAlertTime = React.useRef(null);
+
+    React.useEffect(() => {
+        return () => {
+            isMounted.current = false;
+        };
+    }, []);
+
+    // Alert sound when time is running out (hurry mode - last 5 seconds)
+    React.useEffect(() => {
+        if (gameState?.state === 'PLAYING' && gameState?.timer !== undefined) {
+            const timeLeft = gameState.timer; // Use raw timer value
+
+            console.log('[ALERT] Timer:', timeLeft, 'State:', gameState.state);
+
+            // Start repeating beeps when <= 5 seconds
+            if (timeLeft <= 5 && timeLeft > 0) {
+                console.log('[ALERT] Activating beeps! Time:', timeLeft);
+
+                const playBeep = () => {
+                    console.log('[ALERT] Playing beep at:', new Date().toISOString());
+                    try {
+                        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                        const oscillator = audioContext.createOscillator();
+                        const gainNode = audioContext.createGain();
+
+                        oscillator.connect(gainNode);
+                        gainNode.connect(audioContext.destination);
+
+                        oscillator.frequency.value = 1000; // Higher frequency for urgency
+                        oscillator.type = 'sine';
+
+                        gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
+                        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+
+                        oscillator.start(audioContext.currentTime);
+                        oscillator.stop(audioContext.currentTime + 0.2);
+                    } catch (e) {
+                        console.error("[ALERT] Sound error:", e);
+                    }
+                };
+
+                // Play initial beep
+                playBeep();
+
+                // Repeat every 1 second
+                const interval = setInterval(playBeep, 1000);
+
+                return () => {
+                    console.log('[ALERT] Cleaning up interval');
+                    clearInterval(interval);
+                };
+            }
+        }
+    }, [gameState?.timer, gameState?.state]);
 
     // Reliable Timer Logic
     useEffect(() => {

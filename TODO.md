@@ -1,5 +1,9 @@
 
 coincidencia patillas con entradas
+cuando acabe la ronda quiero que tambien informe de si ha ganado o perdido y también un resumen de los resultados y la tabla de resultados hasta esa ronda.
+
+
+____________________________________________________________________________
 
 
 https://chatgpt.com/share/697e4384-9268-800d-ab8f-677f3ceb2c01

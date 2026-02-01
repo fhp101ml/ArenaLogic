@@ -282,6 +282,10 @@ class GameManager:
         for team in room.teams.values():
             if team.solved_current_round:
                 continue
+            
+            # Skip empty teams (no players)
+            if not team.players or len(team.players) == 0:
+                continue
 
             # 1. Calculate REALITY (The output the gate produces based on cards)
             gate_type = team.current_gate
@@ -459,6 +463,10 @@ class GameManager:
             return
             
         for team in room.teams.values():
+            # Skip empty teams (no players)
+            if not team.players or len(team.players) == 0:
+                continue
+            
             # Apply penalties (Sabotage + Wrong Attempts)
             total_penalty = team.last_round_penalty
             
@@ -485,9 +493,46 @@ class GameManager:
                 team.last_round_base = 0
                 team.last_round_bonus = 0
                 team.last_round_penalty = 0
+                team.not_gates_used = 0
+                team.was_sabotaged = False
+                
+                # Reset all players
+                for player in team.players.values():
+                    player.vote_value = None
+                    player.card_value = None
+                    player.has_not_gate = False
+            
+            return room
+        return None
+    
+    def reset_game(self, room_id: str):
+        """Complete game reset: round 0, scores 0, state WAITING"""
+        room = self.rooms.get(room_id)
+        if room:
+            # Reset round and state
+            room.round_number = 0
+            room.state = 'WAITING'
+            room.current_round_end_time = None
+            
+            # Reset all teams
+            for team in room.teams.values():
+                team.score = 0
+                team.solved_current_round = False
                 team.last_round_result = None
-            return True
-        return False
+                team.last_round_base = 0
+                team.last_round_bonus = 0
+                team.last_round_penalty = 0
+                team.not_gates_used = 0
+                team.was_sabotaged = False
+                
+                # Reset all players
+                for player in team.players.values():
+                    player.vote_value = None
+                    player.card_value = None
+                    player.has_not_gate = False
+            
+            return room
+        return None
 
     def toggle_team_chat(self, room_id: str, team_id: str):
         """Toggle chat permission for a specific team"""
