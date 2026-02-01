@@ -4,6 +4,7 @@ import { useGameStore } from '../store/gameStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Container, Row, Col, Card, Button, Form, InputGroup } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
+import SurveyModal from './SurveyModal';
 
 const AVATARS = ['🦁', '🐯', '🐻', '🐲', '🦄', '🤖', '👽', '👻', '⚡', '🔥', '💧', '🌪️'];
 
@@ -16,11 +17,28 @@ const Lobby = () => {
 
     const [roomId, setRoomId] = useState('demo-room');
     const [teamId, setTeamId] = useState('A');
+    const [showSurvey, setShowSurvey] = useState(false);
     const nameInputRef = useRef(null);
 
     useEffect(() => {
         nameInputRef.current?.focus();
     }, []);
+
+    // Listen for voice-triggered survey start
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleSurveyVoiceStart = () => {
+            console.log('[LOBBY] Voice survey start received');
+            setShowSurvey(true);
+        };
+
+        socket.on('survey_voice_start', handleSurveyVoiceStart);
+
+        return () => {
+            socket.off('survey_voice_start', handleSurveyVoiceStart);
+        };
+    }, [socket]);
 
     const updateProfile = (field, value) => {
         setDraftProfile({ [field]: value });
@@ -172,7 +190,17 @@ const Lobby = () => {
                     >
                         [ VIEW_CORE_LOGIC_PROTOCOLS ]
                     </Link>
+                    <div className="mt-3">
+                        <Button
+                            variant="outline-warning"
+                            onClick={() => setShowSurvey(true)}
+                            className="px-4"
+                        >
+                            📋 Encuesta de Satisfacción
+                        </Button>
+                    </div>
                 </div>
+                <SurveyModal show={showSurvey} onClose={() => setShowSurvey(false)} />
             </motion.div>
         </Container>
     );

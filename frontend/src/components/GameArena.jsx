@@ -266,6 +266,13 @@ const GameArena = () => {
                         </div>
                     </Navbar.Brand>
 
+                    {/* Instructions Link */}
+                    <Nav className="ms-3">
+                        <Nav.Link href="/instructions" className="text-warning d-flex align-items-center gap-1">
+                            📖 <span className="d-none d-md-inline">Instrucciones</span>
+                        </Nav.Link>
+                    </Nav>
+
                     <Nav className="mx-auto d-none d-lg-flex align-items-center gap-4">
                         {myTeam.current_gate && (() => {
                             const gateInfo = getGateInfo(myTeam.current_gate);

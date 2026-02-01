@@ -30,9 +30,17 @@ A real-time competitive multiplayer game where teams collaborate to solve logic 
 - **🤖 AI Agent**: LangGraph-powered assistant with conversation memory
   - Never suggests which vote to choose (player decides)
   - Avatar name recognition (rayo→⚡, gota→💧, león→🦁)
+  - Voice-guided survey completion
 - **🎛️ Operator Control**: Enable/disable accessibility per player (🔊/🔇)
 - **🌐 Multilingual**: Spanish voice support (Edge-TTS)
 - **⚙️ Local STT**: Whisper model fallback for privacy
+
+### 📋 Satisfaction Survey
+- **Star Rating System**: 1-10 scale for 4 categories
+- **Categories**: Gameplay, Accessibility, Fun, Recommendation
+- **Voice-Guided Mode**: AI assistant guides through survey step by step
+- **Real-time Updates**: Form updates as you speak
+- **CSV Storage**: Responses saved to `survey_responses.csv`
 
 ### 🎮 Operator Features
 - **Reset Scores**: Clear all team scores

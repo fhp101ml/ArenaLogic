@@ -240,12 +240,119 @@ class AccessibilityManager:
                 print(f"[ERROR] apply_not_gate failed: {e}")
                 return f"Error applying NOT gate: {str(e)}"
 
-        self.tools = [vote, get_game_state, client_fill_form, confirm_join_game, apply_not_gate]
+        # ==================== SURVEY TOOLS ====================
+        
+        # Survey state storage per user
+        self.survey_states = {}  # sid -> {ratings: {}, notes: ""}
+        
+        SURVEY_QUESTIONS = [
+            {"id": "gameplay", "text": "jugabilidad"},
+            {"id": "accessibility", "text": "accesibilidad"},
+            {"id": "fun", "text": "diversión"},
+            {"id": "recommend", "text": "recomendación"},
+        ]
+        
+        @tool
+        async def start_survey(sid: str):
+            """
+            Start filling out the satisfaction survey.
+            Call this when user wants to do the survey by voice.
+            Returns the first question to ask.
+            """
+            self.survey_states[sid] = {"ratings": {}, "notes": ""}
+            # Emit to open survey modal on client
+            await self.sio.emit('survey_voice_start', {}, to=sid)
+            return json.dumps({"action": "survey_start", "message": "Survey started. First question: How would you rate the gameplay? (1-10)"})
+        
+        @tool
+        async def survey_rate(sid: str, question_id: str, rating: int):
+            """
+            Rate a survey question. 
+            question_id can be: gameplay, accessibility, fun, recommend
+            rating must be 1-10
+            After rating, check what's missing and guide user.
+            """
+            if sid not in self.survey_states:
+                self.survey_states[sid] = {"ratings": {}, "notes": ""}
+            
+            if question_id not in ["gameplay", "accessibility", "fun", "recommend"]:
+                return f"Invalid question. Valid options: gameplay, accessibility, fun, recommend"
+            
+            if rating < 1 or rating > 10:
+                return f"Rating must be between 1 and 10"
+            
+            self.survey_states[sid]["ratings"][question_id] = rating
+            
+            # Emit update to frontend
+            await self.sio.emit('survey_update', {
+                'ratings': self.survey_states[sid]["ratings"],
+                'notes': self.survey_states[sid]["notes"]
+            }, to=sid)
+            
+            # Check what's missing
+            rated = set(self.survey_states[sid]["ratings"].keys())
+            all_questions = {"gameplay", "accessibility", "fun", "recommend"}
+            missing = all_questions - rated
+            
+            if missing:
+                next_q = list(missing)[0]
+                question_text = {"gameplay": "jugabilidad", "accessibility": "accesibilidad", "fun": "diversión", "recommend": "recomendación"}
+                return f"Registered {rating} for {question_id}. Missing: {', '.join(missing)}. Next: How would you rate {question_text.get(next_q, next_q)}? (1-10)"
+            else:
+                return f"Registered {rating} for {question_id}. All required fields complete! Would you like to add comments? If not, say 'submit survey'."
+        
+        @tool
+        async def survey_notes(sid: str, notes: str):
+            """
+            Add optional comments/notes to the survey.
+            """
+            if sid not in self.survey_states:
+                self.survey_states[sid] = {"ratings": {}, "notes": ""}
+            
+            self.survey_states[sid]["notes"] = notes
+            
+            # Emit update to frontend
+            await self.sio.emit('survey_update', {
+                'ratings': self.survey_states[sid]["ratings"],
+                'notes': notes
+            }, to=sid)
+            
+            return f"Comments added: '{notes}'. Say 'submit survey' to send."
+        
+        @tool
+        async def survey_submit(sid: str, player_name: str):
+            """
+            Submit the completed survey.
+            Call this when user confirms they want to submit.
+            """
+            if sid not in self.survey_states:
+                return "No survey in progress. Start with 'start survey'."
+            
+            state = self.survey_states[sid]
+            ratings = state["ratings"]
+            
+            # Check all required
+            if len(ratings) < 4:
+                missing = {"gameplay", "accessibility", "fun", "recommend"} - set(ratings.keys())
+                return f"Cannot submit. Missing ratings for: {', '.join(missing)}"
+            
+            # Import and use survey_manager
+            from surveys import survey_manager
+            success = survey_manager.submit_response(player_name, ratings, state.get("notes", ""))
+            
+            if success:
+                # Clear state and notify frontend
+                del self.survey_states[sid]
+                await self.sio.emit('survey_submitted', {'success': True}, to=sid)
+                return "Survey submitted successfully! Thank you for your feedback."
+            else:
+                return "Error submitting survey. Please try again."
+
+        self.tools = [vote, get_game_state, client_fill_form, confirm_join_game, apply_not_gate, 
+                      start_survey, survey_rate, survey_notes, survey_submit]
         
         self.system_prompt = """You are the 'Hacker Node', an AI assistant for a Logic Gates game.
 Your user is blind or visually impaired. You act as their eyes and hands.
-
-**IMPORTANT**: You have access to tools. USE THEM when the user requests actions.
 
 **CRITICAL RULE - NEVER SUGGEST VOTES**:
 - ❌ NEVER say: "You should vote 0", "The answer is 1", "I recommend voting zero"
@@ -281,6 +388,33 @@ AVAILABLE TOOLS:
    - Use when: User wants to sabotage/invert a rival's card
    - Example: "sabotage player Alex" → call apply_not_gate(sid, "Alex")
    - Requires: score > 0 and remaining time > 5 seconds
+
+6. `start_survey(sid)` - Start voice-guided survey
+   - Opens survey modal and starts guided flow
+   - Example: "quiero hacer la encuesta" → call start_survey(sid)
+
+7. `survey_rate(sid, question_id, rating)` - Rate a survey question
+   - question_id: "gameplay", "accessibility", "fun", "recommend"
+   - rating: 1-10
+   - Example: "jugabilidad 8" → call survey_rate(sid, "gameplay", 8)
+   - After each rating, tell user what's missing and ask next question
+
+8. `survey_notes(sid, notes)` - Add optional comments
+   - Example: "comentario me encantó el juego" → call survey_notes(sid, "me encantó el juego")
+
+9. `survey_submit(sid, player_name)` - Submit completed survey
+   - Only call when all 4 ratings are complete AND user confirms
+   - Example: "enviar encuesta" → call survey_submit(sid, user_name)
+
+SURVEY WORKFLOW:
+1. User: "quiero hacer la encuesta" → call start_survey(sid)
+2. Ask: "¿Cómo calificas la jugabilidad del 1 al 10?"
+3. User: "8" → call survey_rate(sid, "gameplay", 8)
+4. Ask: "Registrado 8 para jugabilidad. ¿Cómo calificas la accesibilidad?"
+5. Continue until all 4 questions are rated
+6. Ask: "¿Deseas añadir algún comentario? Si no, di 'enviar encuesta'"
+7. User: "añade que me gustó mucho" → call survey_notes(sid, "me gustó mucho")
+8. User: "enviar" → call survey_submit(sid, player_name)
 
 WORKFLOW for registration:
 1. User: "My name is Alex"

@@ -1,5 +1,6 @@
 from game_manager import GameManager
 from accessibility import AccessibilityManager
+from surveys import survey_manager
 import asyncio
 import sys
 import time
@@ -278,6 +279,23 @@ async def set_not_lockout(sid, data):
         success = game_manager.set_not_lockout_time(room_id, seconds)
         if success:
             await broadcast_room_state(room_id)
+
+# ===================== SURVEY EVENTS =====================
+
+@sio.event
+async def get_survey(sid, data):
+    """Get survey questions"""
+    questions = survey_manager.get_questions()
+    await sio.emit('survey_data', {'questions': questions}, to=sid)
+
+@sio.event
+async def submit_survey(sid, data):
+    """Submit survey response"""
+    player_name = data.get('player_name', 'Anonymous')
+    ratings = data.get('ratings', {})
+    notes = data.get('notes', '')
+    success = survey_manager.submit_response(player_name, ratings, notes)
+    await sio.emit('survey_submitted', {'success': success}, to=sid)
 
 @sio.event
 async def upload_card_image(sid, data):
