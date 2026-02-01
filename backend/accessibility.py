@@ -361,8 +361,59 @@ class AccessibilityManager:
             await self.sio.emit('survey_close', {}, to=sid)
             return "Survey closed."
 
+        # ==================== INSTRUCTIONS TOOLS ====================
+        
+        INSTRUCTIONS_TEXT = """
+        Instrucciones del juego ArenaLogic:
+        
+        Objetivo: Coordina con tu equipo para manipular la unidad lógica y superar las secuencias de seguridad.
+        
+        Modo Predecir: Analizad vuestras cartas. Todos debéis votar 0 o 1 según lo que creáis que será la salida de la puerta.
+        
+        Modo Forzar Apertura: Manipulad las entradas usando puertas NOT para forzar que la salida sea 1.
+        
+        Puertas lógicas:
+        - AND: Solo da 1 si TODAS las entradas son 1.
+        - OR: Da 1 si ALGUNA entrada es 1.
+        - XOR: Da 1 solo si las entradas son DISTINTAS.
+        - NAND: Inverso de AND.
+        - NOR: Inverso de OR.
+        - NOT: Invierte el valor, 0 pasa a 1 y 1 pasa a 0.
+        
+        Reglas importantes:
+        - No puedes ver el voto de tus compañeros hasta el final.
+        - Si alguien no vota, la ronda se pierde automáticamente.
+        - Puedes cambiar tu voto mientras quede tiempo.
+        """
+        
+        @tool
+        async def open_instructions(sid: str):
+            """
+            Open the game instructions modal.
+            Use when user wants to see instructions in lobby.
+            """
+            await self.sio.emit('instructions_open', {}, to=sid)
+            return "Instructions opened. Say 'read instructions' to hear them, or 'close instructions' when done."
+        
+        @tool
+        async def close_instructions(sid: str):
+            """
+            Close the game instructions modal.
+            """
+            await self.sio.emit('instructions_close', {}, to=sid)
+            return "Instructions closed."
+        
+        @tool
+        async def read_instructions(sid: str):
+            """
+            Read the game instructions aloud for the user.
+            This provides a spoken summary of how to play.
+            """
+            return INSTRUCTIONS_TEXT
+
         self.tools = [vote, get_game_state, client_fill_form, confirm_join_game, apply_not_gate, 
-                      start_survey, survey_rate, survey_notes, survey_submit, close_survey]
+                      start_survey, survey_rate, survey_notes, survey_submit, close_survey,
+                      open_instructions, close_instructions, read_instructions]
         
         self.system_prompt = """You are the 'Hacker Node', an AI assistant for a Logic Gates game.
 Your user is blind or visually impaired. You act as their eyes and hands.
@@ -422,6 +473,26 @@ AVAILABLE TOOLS:
 10. `close_survey(sid)` - Close survey without submitting
    - Use when user wants to cancel or close: "cerrar", "cancelar", "no quiero"
    - Example: "cerrar encuesta" → call close_survey(sid)
+
+11. `open_instructions(sid)` - Open instructions modal (lobby only)
+   - Trigger words: "ver instrucciones", "abrir instrucciones", "las reglas", "cómo se juega", "ayuda", "manual"
+   - Examples: "quiero ver las instrucciones", "abre las reglas", "cómo funciona el juego", "necesito ayuda"
+
+12. `close_instructions(sid)` - Close instructions modal
+   - Trigger words: "cerrar instrucciones", "ocultar", "salir de instrucciones", "ya entendí"
+   - Examples: "cierra las reglas", "ya vale, cierra"
+
+13. `read_instructions(sid)` - Read game instructions aloud
+   - Narrates all rules and gate types for blind users
+   - Trigger words: "leer instrucciones", "explicar", "léeme las reglas", "cuéntame cómo se juega"
+   - Examples: "explícame el juego", "lee las instrucciones", "cuéntame las reglas"
+
+**IMPORTANT - FLEXIBLE INTERPRETATION**:
+Do NOT interpret user commands literally. Understand the USER'S INTENT:
+- "ver instrucciones" = "abrir instrucciones" = "las reglas" → open_instructions
+- "cuéntame cómo funciona" = "explícame el juego" → read_instructions  
+- "quiero votar cero" = "voto 0" = "mi voto es cero" → vote(sid, 0)
+- "sabotea al jugador X" = "ponle NOT a X" → apply_not_gate
 
 SURVEY WORKFLOW:
 1. User: "quiero hacer la encuesta" → call start_survey(sid)

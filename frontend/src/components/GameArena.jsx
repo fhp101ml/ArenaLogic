@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import LogicCard from './LogicCard';
 import { LogicGate } from './Visuals';
-import GameInstructions from './GameInstructions';
+
 import HackerDashboard from './HackerDashboard';
 import { getGateInfo } from '../utils/gateHelpers';
 import TeamChat from './TeamChat';
@@ -265,13 +265,6 @@ const GameArena = () => {
                             </div>
                         </div>
                     </Navbar.Brand>
-
-                    {/* Instructions Link */}
-                    <Nav className="ms-3">
-                        <Nav.Link href="/instructions" className="text-warning d-flex align-items-center gap-1">
-                            📖 <span className="d-none d-md-inline">Instrucciones</span>
-                        </Nav.Link>
-                    </Nav>
 
                     <Nav className="mx-auto d-none d-lg-flex align-items-center gap-4">
                         {myTeam.current_gate && (() => {
@@ -639,7 +632,7 @@ const GameArena = () => {
                     />
                 )
             }
-            <GameInstructions />
+
 
 
         </div >

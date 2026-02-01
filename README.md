@@ -31,6 +31,7 @@ A real-time competitive multiplayer game where teams collaborate to solve logic 
   - Never suggests which vote to choose (player decides)
   - Avatar name recognition (rayo→⚡, gota→💧, león→🦁)
   - Voice-guided survey completion
+  - **Voice-controlled instructions**: "ver instrucciones", "leer las reglas", "cerrar instrucciones"
 - **🎛️ Operator Control**: Enable/disable accessibility per player (🔊/🔇)
 - **🌐 Multilingual**: Spanish voice support (Edge-TTS)
 - **⚙️ Local STT**: Whisper model fallback for privacy

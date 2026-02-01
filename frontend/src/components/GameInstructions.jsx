@@ -1,190 +1,329 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const GameInstructions = () => {
-    const [isOpen, setIsOpen] = useState(false);
+const GameInstructions = ({ isOpen: externalIsOpen, onClose, showButton = true }) => {
+    const [internalIsOpen, setInternalIsOpen] = useState(false);
+
+    // Use external control if provided, otherwise use internal state
+    const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
+    const handleClose = () => {
+        if (onClose) {
+            onClose();
+        } else {
+            setInternalIsOpen(false);
+        }
+    };
+    const handleOpen = () => setInternalIsOpen(true);
 
     return (
         <>
-            {/* Floating Help Button */}
-            <button
-                onClick={() => setIsOpen(true)}
-                className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full shadow-lg hover:shadow-purple-500/50 transition-all hover:scale-110 flex items-center justify-center text-2xl group"
-                title="Game Instructions"
-            >
-                <span className="group-hover:rotate-12 transition-transform">❓</span>
-            </button>
+            {/* Floating Help Button - only show if showButton is true */}
+            {showButton && (
+                <button
+                    onClick={handleOpen}
+                    className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full shadow-lg hover:shadow-purple-500/50 transition-all hover:scale-110 flex items-center justify-center text-2xl group"
+                    title="Game Instructions"
+                >
+                    <span className="group-hover:rotate-12 transition-transform">❓</span>
+                </button>
+            )}
 
-            {/* Instructions Modal */}
+            {/* Instructions Modal - FULL SCREEN OVERLAY */}
             <AnimatePresence>
                 {isOpen && (
-                    <>
+                    <div
+                        className="fixed inset-0 z-[5000]"
+                        style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 5000 }}
+                    >
                         {/* Backdrop */}
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            onClick={() => setIsOpen(false)}
-                            className="fixed inset-0 bg-black/95 z-50"
+                            onClick={handleClose}
+                            style={{
+                                position: 'fixed',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                backgroundColor: '#000',
+                                zIndex: 5000
+                            }}
                         />
 
-                        {/* Modal Content */}
+                        {/* Modal Content - CENTERED */}
                         <motion.div
                             initial={{ opacity: 0, scale: 0.9, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
+                            style={{
+                                position: 'fixed',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                padding: '2rem',
+                                zIndex: 5001
+                            }}
                         >
-                            <div className="bg-slate-950 border-2 border-cyan-500/50 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto pointer-events-auto">
-                                {/* Header */}
-                                <div className="sticky top-0 bg-gradient-to-r from-cyan-900 to-blue-900 p-6 border-b-2 border-cyan-500/30">
-                                    <div className="flex justify-between items-center">
-                                        <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
-                                            🎮 GAME INSTRUCTIONS
-                                        </h2>
+                            <div
+                                style={{
+                                    background: 'linear-gradient(145deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
+                                    border: '3px solid #22d3ee',
+                                    borderRadius: '1.5rem',
+                                    boxShadow: '0 0 60px rgba(34, 211, 238, 0.4), 0 0 120px rgba(34, 211, 238, 0.2), inset 0 1px 0 rgba(255,255,255,0.1)',
+                                    maxWidth: '800px',
+                                    width: '100%',
+                                    maxHeight: '90vh',
+                                    overflow: 'hidden',
+                                    display: 'flex',
+                                    flexDirection: 'column'
+                                }}
+                            >
+                                {/* Header - PREMIUM DESIGN */}
+                                <div
+                                    style={{
+                                        background: 'linear-gradient(135deg, #0891b2 0%, #0e7490 50%, #164e63 100%)',
+                                        padding: '1.5rem 2rem',
+                                        borderBottom: '2px solid rgba(34, 211, 238, 0.5)',
+                                        position: 'relative',
+                                        overflow: 'hidden'
+                                    }}
+                                >
+                                    {/* Animated scan line effect */}
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: '-100%',
+                                        width: '200%',
+                                        height: '100%',
+                                        background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)',
+                                        animation: 'scan 3s linear infinite'
+                                    }} />
+
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 1 }}>
+                                        <div>
+                                            <h2 style={{
+                                                fontSize: '2rem',
+                                                fontWeight: 900,
+                                                background: 'linear-gradient(135deg, #67e8f9, #22d3ee, #06b6d4)',
+                                                WebkitBackgroundClip: 'text',
+                                                WebkitTextFillColor: 'transparent',
+                                                textShadow: '0 0 30px rgba(34, 211, 238, 0.5)',
+                                                marginBottom: '0.25rem'
+                                            }}>
+                                                🎮 GAME PROTOCOLS
+                                            </h2>
+                                            <div style={{ fontSize: '0.75rem', color: '#94a3b8', letterSpacing: '0.2em', textTransform: 'uppercase' }}>
+                                                CORE_LOGIC_MANUAL_v2.0
+                                            </div>
+                                        </div>
                                         <button
-                                            onClick={() => setIsOpen(false)}
-                                            className="w-10 h-10 rounded-full bg-red-500/20 hover:bg-red-500/40 text-red-400 transition-colors flex items-center justify-center text-xl"
+                                            onClick={handleClose}
+                                            style={{
+                                                width: '44px',
+                                                height: '44px',
+                                                borderRadius: '50%',
+                                                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                                                border: '2px solid #fca5a5',
+                                                color: 'white',
+                                                fontSize: '1.25rem',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                boxShadow: '0 0 20px rgba(239, 68, 68, 0.5)',
+                                                transition: 'all 0.2s'
+                                            }}
                                         >
                                             ✕
                                         </button>
                                     </div>
                                 </div>
 
-                                {/* Content */}
-                                <div className="p-6 space-y-6">
+                                {/* Content - SCROLLABLE */}
+                                <div style={{
+                                    padding: '2rem',
+                                    overflowY: 'auto',
+                                    flex: 1,
+                                    background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.9) 100%)'
+                                }}>
                                     {/* 🎯 Objetivo */}
-                                    <section>
-                                        <h3 className="text-xl font-bold text-cyan-400 mb-3 flex items-center gap-2">
+                                    <section style={{ marginBottom: '2rem' }}>
+                                        <h3 style={{
+                                            fontSize: '1.25rem',
+                                            fontWeight: 700,
+                                            color: '#22d3ee',
+                                            marginBottom: '1rem',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem',
+                                            textShadow: '0 0 10px rgba(34, 211, 238, 0.5)'
+                                        }}>
                                             🎯 OBJETIVO
                                         </h3>
-                                        <p className="text-slate-300 leading-relaxed">
+                                        <p style={{ color: '#cbd5e1', lineHeight: 1.7 }}>
                                             Coordina con tu equipo para manipular la unidad lógica y superar las secuencias de seguridad.
-                                            Dependiendo del <strong>HACK MODE</strong>, deberéis predecir el resultado o forzar la apertura del sistema.
+                                            Dependiendo del <strong style={{ color: '#fbbf24' }}>HACK MODE</strong>, deberéis predecir el resultado o forzar la apertura del sistema.
                                         </p>
                                     </section>
 
                                     {/* 🕹️ Modos de Juego */}
-                                    <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="bg-blue-900/20 p-4 rounded-xl border border-blue-500/30">
-                                            <h4 className="font-black text-blue-400 mb-2 uppercase tracking-tighter">🔮 MODE: PREDICT</h4>
-                                            <p className="text-xs text-slate-400 leading-relaxed">
-                                                Analizad vuestras cartas y los <strong>NOT</strong> activos.
+                                    <section style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                                        gap: '1rem',
+                                        marginBottom: '2rem'
+                                    }}>
+                                        <div style={{
+                                            background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.1))',
+                                            padding: '1.5rem',
+                                            borderRadius: '1rem',
+                                            border: '2px solid rgba(59, 130, 246, 0.4)',
+                                            boxShadow: '0 0 20px rgba(59, 130, 246, 0.2)'
+                                        }}>
+                                            <h4 style={{ fontWeight: 900, color: '#60a5fa', marginBottom: '0.75rem', letterSpacing: '-0.025em' }}>
+                                                🔮 MODE: PREDICT
+                                            </h4>
+                                            <p style={{ fontSize: '0.875rem', color: '#94a3b8', lineHeight: 1.6 }}>
+                                                Analizad vuestras cartas y los <strong style={{ color: '#f97316' }}>NOT</strong> activos.
                                                 Todos debéis votar (0 o 1) lo que creáis que será la salida final de la puerta.
-                                                <strong> El voto del equipo debe coincidir con la realidad para ganar.</strong>
+                                                <strong style={{ color: '#22d3ee' }}> El voto del equipo debe coincidir con la realidad para ganar.</strong>
                                             </p>
                                         </div>
-                                        <div className="bg-emerald-900/20 p-4 rounded-xl border border-emerald-500/30">
-                                            <h4 className="font-black text-emerald-400 mb-2 uppercase tracking-tighter">🚀 MODE: FORCE OPEN</h4>
-                                            <p className="text-xs text-slate-400 leading-relaxed">
-                                                Manipulad vuestras entradas usando puertas <strong>NOT</strong> para forzar que la salida de la puerta sea <strong>1</strong> (OPEN).
+                                        <div style={{
+                                            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.1))',
+                                            padding: '1.5rem',
+                                            borderRadius: '1rem',
+                                            border: '2px solid rgba(16, 185, 129, 0.4)',
+                                            boxShadow: '0 0 20px rgba(16, 185, 129, 0.2)'
+                                        }}>
+                                            <h4 style={{ fontWeight: 900, color: '#34d399', marginBottom: '0.75rem', letterSpacing: '-0.025em' }}>
+                                                🚀 MODE: FORCE OPEN
+                                            </h4>
+                                            <p style={{ fontSize: '0.875rem', color: '#94a3b8', lineHeight: 1.6 }}>
+                                                Manipulad vuestras entradas usando puertas <strong style={{ color: '#f97316' }}>NOT</strong> para forzar que la salida de la puerta sea <strong style={{ color: '#22d3ee' }}>1</strong> (OPEN).
                                                 Todos debéis pulsar <strong>CONFIRM</strong> antes de intentar el <strong>OVERRIDE</strong>.
                                             </p>
                                         </div>
                                     </section>
 
                                     {/* ⚡ Referencia de Puertas Lógicas */}
-                                    <section className="bg-slate-900/40 p-5 rounded-xl border border-cyan-500/30">
-                                        <h3 className="text-sm font-black text-cyan-400 mb-4 uppercase tracking-[0.2em] border-b border-cyan-500/10 pb-2 flex justify-between items-center">
+                                    <section style={{
+                                        background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(30, 41, 59, 0.6))',
+                                        padding: '1.5rem',
+                                        borderRadius: '1rem',
+                                        border: '1px solid rgba(34, 211, 238, 0.3)',
+                                        marginBottom: '2rem'
+                                    }}>
+                                        <h3 style={{
+                                            fontSize: '0.875rem',
+                                            fontWeight: 900,
+                                            color: '#22d3ee',
+                                            marginBottom: '1rem',
+                                            letterSpacing: '0.15em',
+                                            textTransform: 'uppercase',
+                                            borderBottom: '1px solid rgba(34, 211, 238, 0.2)',
+                                            paddingBottom: '0.5rem',
+                                            display: 'flex',
+                                            justifyContent: 'space-between'
+                                        }}>
                                             <span>📚 REFERENCIA DE PUERTAS</span>
-                                            <span className="text-[10px] text-slate-500">FORMATO: A | B = RESULTADO</span>
+                                            <span style={{ fontSize: '0.625rem', color: '#64748b' }}>FORMATO: A | B = RESULTADO</span>
                                         </h3>
 
-                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-[10px]">
-                                            <div className="p-2 bg-black/40 rounded border border-slate-800">
-                                                <div className="font-bold text-cyan-400 mb-1 flex justify-between">
-                                                    <span>AND (Y)</span>
-                                                    <span className="text-emerald-500 x-small">+2 XP</span>
+                                        <div style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                                            gap: '0.75rem'
+                                        }}>
+                                            {[
+                                                { name: 'AND (Y)', desc: '1 y 1 = 1', sub: 'Solo 1 si todo es 1', xp: '+2', color: '#22d3ee' },
+                                                { name: 'OR (O)', desc: '0 o 1 = 1', sub: '1 si hay algún 1', xp: '+1', color: '#22d3ee' },
+                                                { name: 'XOR', desc: '1 ≠ 0 = 1', sub: '1 solo si distintos', xp: '+3', color: '#22d3ee' },
+                                                { name: 'NAND', desc: '¬AND', sub: 'Inverso de AND', xp: '+2', color: '#f87171' },
+                                                { name: 'NOR', desc: '¬OR', sub: 'Inverso de OR', xp: '+3', color: '#f87171' },
+                                                { name: 'NOT', desc: '0→1 | 1→0', sub: 'Invierte valor', xp: '-', color: '#fb923c' },
+                                            ].map(gate => (
+                                                <div key={gate.name} style={{
+                                                    background: 'rgba(0,0,0,0.4)',
+                                                    padding: '0.75rem',
+                                                    borderRadius: '0.5rem',
+                                                    border: '1px solid rgba(100, 116, 139, 0.3)'
+                                                }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                                                        <span style={{ fontWeight: 700, color: gate.color, fontSize: '0.75rem' }}>{gate.name}</span>
+                                                        <span style={{ color: '#34d399', fontSize: '0.625rem' }}>{gate.xp} XP</span>
+                                                    </div>
+                                                    <p style={{ color: '#cbd5e1', fontSize: '0.75rem' }}>{gate.desc}</p>
+                                                    <p style={{ color: '#64748b', fontSize: '0.625rem', fontStyle: 'italic' }}>{gate.sub}</p>
                                                 </div>
-                                                <p className="text-slate-300">1 y 1 = 1</p>
-                                                <p className="text-slate-300 italic">Solo 1 si todo es 1</p>
-                                            </div>
-                                            <div className="p-2 bg-black/40 rounded border border-slate-800">
-                                                <div className="font-bold text-cyan-400 mb-1 flex justify-between">
-                                                    <span>OR (O)</span>
-                                                    <span className="text-emerald-500 x-small">+1 XP</span>
-                                                </div>
-                                                <p className="text-slate-300">0 o 1 = 1 | 1 o 1 = 1</p>
-                                                <p className="text-slate-300 italic">1 si hay algún 1</p>
-                                            </div>
-                                            <div className="p-2 bg-black/40 rounded border border-slate-800">
-                                                <div className="font-bold text-cyan-400 mb-1 flex justify-between">
-                                                    <span>XOR</span>
-                                                    <span className="text-emerald-500 x-small">+3 XP</span>
-                                                </div>
-                                                <p className="text-slate-300">1 o 0 = 1 | 1 o 1 = 0</p>
-                                                <p className="text-slate-300 italic">1 solo si son distintos</p>
-                                            </div>
-                                            <div className="p-2 bg-black/40 rounded border border-slate-800">
-                                                <div className="font-bold text-red-400 mb-1 flex justify-between">
-                                                    <span>NAND</span>
-                                                    <span className="text-emerald-500 x-small">+2 XP</span>
-                                                </div>
-                                                <p className="text-slate-300 italic">Inverso de AND</p>
-                                            </div>
-                                            <div className="p-2 bg-black/40 rounded border border-slate-800">
-                                                <div className="font-bold text-red-400 mb-1 flex justify-between">
-                                                    <span>NOR</span>
-                                                    <span className="text-emerald-500 x-small">+3 XP</span>
-                                                </div>
-                                                <p className="text-slate-300 italic">Inverso de OR</p>
-                                            </div>
-                                            <div className="p-2 bg-cyan-900/20 rounded border border-cyan-500/30">
-                                                <div className="font-bold text-orange-400 mb-1">NOT (Inversor)</div>
-                                                <p className="text-slate-300 italic">Invierte el valor: 0→1 | 1→0</p>
-                                            </div>
+                                            ))}
                                         </div>
                                     </section>
 
-                                    {/* ⚠️ Protocolos de Seguridad */}
-                                    <section className="bg-slate-900/50 p-4 rounded-xl border border-red-500/20">
-                                        <h3 className="text-sm font-black text-red-400 mb-4 uppercase tracking-[0.2em] border-b border-red-500/10 pb-2">
+                                    {/* ⚠️ Protocolos */}
+                                    <section style={{
+                                        background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(185, 28, 28, 0.05))',
+                                        padding: '1.5rem',
+                                        borderRadius: '1rem',
+                                        border: '1px solid rgba(239, 68, 68, 0.3)'
+                                    }}>
+                                        <h3 style={{ fontSize: '0.875rem', fontWeight: 900, color: '#f87171', marginBottom: '1rem', letterSpacing: '0.15em' }}>
                                             ⚠️ PROTOCOLOS DE SEGURIDAD
                                         </h3>
-                                        <ul className="space-y-4">
-                                            <li className="flex gap-4">
-                                                <div className="w-8 h-8 rounded bg-cyan-500/10 flex items-center justify-center flex-shrink-0 text-cyan-400">🕵️</div>
+                                        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                            <li style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                                                <span style={{
+                                                    width: '32px',
+                                                    height: '32px',
+                                                    background: 'rgba(34, 211, 238, 0.1)',
+                                                    borderRadius: '0.5rem',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    flexShrink: 0
+                                                }}>🕵️</span>
                                                 <div>
-                                                    <div className="font-bold text-slate-200 text-sm italic">VOTACIÓN PRIVADA</div>
-                                                    <div className="text-xs text-slate-400">No puedes ver el voto exacto de tus compañeros hasta el final. ¡La comunicación verbal es vital!</div>
+                                                    <div style={{ fontWeight: 700, color: '#e2e8f0', fontSize: '0.875rem' }}>VOTACIÓN PRIVADA</div>
+                                                    <div style={{ color: '#94a3b8', fontSize: '0.75rem' }}>No puedes ver el voto exacto de tus compañeros hasta el final. ¡Comunicación verbal clave!</div>
                                                 </div>
                                             </li>
-                                            <li className="flex gap-4">
-                                                <div className="w-8 h-8 rounded bg-orange-500/10 flex items-center justify-center flex-shrink-0 text-orange-400">👥</div>
+                                            <li style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                                                <span style={{
+                                                    width: '32px',
+                                                    height: '32px',
+                                                    background: 'rgba(251, 146, 60, 0.1)',
+                                                    borderRadius: '0.5rem',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    flexShrink: 0
+                                                }}>👥</span>
                                                 <div>
-                                                    <div className="font-bold text-slate-200 text-sm">PARTICIPACIÓN TOTAL</div>
-                                                    <div className="text-xs text-slate-400">Si un solo miembro no vota antes de acabar el tiempo, la ronda se marca como <strong>FAILED</strong> automáticamente.</div>
+                                                    <div style={{ fontWeight: 700, color: '#e2e8f0', fontSize: '0.875rem' }}>PARTICIPACIÓN TOTAL</div>
+                                                    <div style={{ color: '#94a3b8', fontSize: '0.75rem' }}>Si alguien no vota antes del tiempo, la ronda se marca como <strong style={{ color: '#f87171' }}>FAILED</strong>.</div>
                                                 </div>
-                                            </li>
-                                        </ul>
-                                    </section>
-
-                                    {/* 💡 Estrategia */}
-                                    <section>
-                                        <h3 className="text-xl font-bold text-purple-400 mb-3 flex items-center gap-2">
-                                            💡 ESTRATEGIA
-                                        </h3>
-                                        <ul className="space-y-2 text-xs text-slate-400">
-                                            <li className="flex gap-2">
-                                                <span className="text-purple-400">•</span>
-                                                <span>Puedes rectificar tu voto o confirmación pulsando el botón otra vez mientras el tiempo corre.</span>
-                                            </li>
-                                            <li className="flex gap-2">
-                                                <span className="text-purple-400">•</span>
-                                                <span>Si el rival os sabotea el éxito se anula; debéis reaccionar y volver a votar.</span>
-                                            </li>
-                                            <li className="flex gap-2">
-                                                <span className="text-purple-400">•</span>
-                                                <span>En <strong>FORCE OPEN</strong>, repartíos quién activa los NOT para ser más rápidos.</span>
                                             </li>
                                         </ul>
                                     </section>
                                 </div>
                             </div>
                         </motion.div>
-                    </>
+                    </div>
                 )}
             </AnimatePresence>
+
+            <style>{`
+                @keyframes scan {
+                    0% { transform: translateX(0); }
+                    100% { transform: translateX(50%); }
+                }
+            `}</style>
         </>
     );
 };

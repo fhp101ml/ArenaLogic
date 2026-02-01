@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Container, Row, Col, Card, Button, Form, InputGroup } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import SurveyModal from './SurveyModal';
+import GameInstructions from './GameInstructions';
 
 const AVATARS = ['🦁', '🐯', '🐻', '🐲', '🦄', '🤖', '👽', '👻', '⚡', '🔥', '💧', '🌪️'];
 
@@ -18,6 +19,7 @@ const Lobby = () => {
     const [roomId, setRoomId] = useState('demo-room');
     const [teamId, setTeamId] = useState('A');
     const [showSurvey, setShowSurvey] = useState(false);
+    const [showInstructions, setShowInstructions] = useState(false);
     const nameInputRef = useRef(null);
 
     useEffect(() => {
@@ -38,12 +40,27 @@ const Lobby = () => {
             setShowSurvey(false);
         };
 
+        // Instructions listeners
+        const handleInstructionsOpen = () => {
+            console.log('[LOBBY] Voice instructions open received');
+            setShowInstructions(true);
+        };
+
+        const handleInstructionsClose = () => {
+            console.log('[LOBBY] Voice instructions close received');
+            setShowInstructions(false);
+        };
+
         socket.on('survey_voice_start', handleSurveyVoiceStart);
         socket.on('survey_close', handleSurveyClose);
+        socket.on('instructions_open', handleInstructionsOpen);
+        socket.on('instructions_close', handleInstructionsClose);
 
         return () => {
             socket.off('survey_voice_start', handleSurveyVoiceStart);
             socket.off('survey_close', handleSurveyClose);
+            socket.off('instructions_open', handleInstructionsOpen);
+            socket.off('instructions_close', handleInstructionsClose);
         };
     }, [socket]);
 
@@ -208,6 +225,11 @@ const Lobby = () => {
                     </div>
                 </div>
                 <SurveyModal show={showSurvey} onClose={() => setShowSurvey(false)} />
+                <GameInstructions
+                    isOpen={showInstructions}
+                    onClose={() => setShowInstructions(false)}
+                    showButton={false}
+                />
             </motion.div>
         </Container>
     );
