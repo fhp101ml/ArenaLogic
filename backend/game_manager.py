@@ -240,6 +240,10 @@ class GameManager:
             # Apply Toggle
             target_team.players[target_sid].has_not_gate = not target_team.players[target_sid].has_not_gate
             target_team.solved_current_round = False
+
+            # RESET VOTES: Force re-vote for the entire team
+            for p in target_team.players.values():
+                p.vote_value = None
             
             # Deduct points ONLY for rival sabotage
             if is_rival_interaction:

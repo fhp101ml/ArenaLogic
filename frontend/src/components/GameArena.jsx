@@ -417,7 +417,7 @@ const GameArena = () => {
                                                                     className={`w-100 py-1 border-2 transition-all ${p.has_not_gate ? 'animate-pulse shadow-sm' : ''} ${isMe && isPlaying && timeLeft > (gameState.not_lockout_time || 5) ? '' : 'opacity-50'}`}
                                                                     style={{ fontSize: '9px' }}
                                                                 >
-                                                                    {p.has_not_gate ? 'NOT_ACTIVE' : (timeLeft <= (gameState.not_lockout_time || 5) ? 'LOCKED' : 'TOGGLE_NOT')}
+                                                                    {p.has_not_gate ? 'REMOVE NOT' : (timeLeft <= (gameState.not_lockout_time || 5) ? 'LOCKED' : 'TOGGLE_NOT')}
                                                                 </Button>
                                                             </Col>
 

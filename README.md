@@ -140,6 +140,8 @@ ssh -R 80:localhost:5173 serveo.net
 5. Wait for operator to start round
 6. Vote on gate output (0 or 1)
 7. Sabotage rivals with NOT gates (costs points)
+   - **New Mechanic**: In **Force Open** mode, you can remove NOT gates from yourself or teammates.
+   - **Vote Reset**: When a NOT gate is applied or removed, the team's votes are wiped, forcing a re-vote.
 
 ### As Operator
 1. Join as operator
@@ -151,7 +153,7 @@ ssh -R 80:localhost:5173 serveo.net
 ### Voice Commands (Accessibility Mode)
 - **Register**: "Mi nombre es Fernando" → "Confirmar"
 - **Vote**: "Voto uno" / "Mi voto es cero"
-- **Sabotage**: "Sabotea a Alex"
+- **Sabotage**: "Sabotea a Alex" (Rival) / "Quítame el NOT" (Force Open Self-Defense)
 - **Status**: "¿Qué puerta tengo?" / "¿Cuál es mi carta?"
 
 ## 🏗️ Architecture

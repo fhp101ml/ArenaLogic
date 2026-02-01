@@ -209,42 +209,52 @@ class AccessibilityManager:
         
         @tool
         def apply_not_gate(sid: str, target_player_name: str):
-            """Apply a NOT gate to sabotage a rival player's card.
+            """Apply OR Remove a NOT gate.
+            
+            Uses:
+            1. SABOTAGE RIVAL: "Sabotage Alex" -> Applies NOT (Costs points).
+            2. REMOVE SABOTAGE (Self/Team): "Remove NOT from Alex" / "Clean my card" -> Removes NOT (Free).
+               - ONLY works in 'Force Open' mode.
             
             Args:
                 sid: Your session ID (automatic)
-                target_player_name: Name of the rival player to sabotage
-                
-            Use when user says:
-            - "sabotage player X" / "apply NOT to X"
-            - "invert X's card" / "put NOT on X"
-            
-            Requirements: Your team needs score > 4 and time > 5s
+                target_player_name: Name of the player to target (can be yourself)
             """
             try:
-                # Find target player SID by name in rival teams
+                # Find target player SID by name in ANY team
                 my_team_id = None
                 target_sid = None
+                target_found_team_id = None
                 
                 for room in self.game_manager.rooms.values():
                     for team in room.teams.values():
                         if sid in team.players:
                             my_team_id = team.id
-                        # Look for target in OTHER teams
+                        
+                        # Look for target in ALL teams
                         for pid, player in team.players.items():
                             if player.name.lower() == target_player_name.lower():
-                                if my_team_id and team.id != my_team_id:
-                                    target_sid = pid
-                                    break
+                                target_sid = pid
+                                target_found_team_id = team.id
+                                break
+                    if target_sid: break
                 
                 if not target_sid:
-                    return f"Player '{target_player_name}' not found in rival teams."
+                    return f"Player '{target_player_name}' not found."
                 
                 # Apply NOT gate via game manager
+                # Game Manager handles the rules:
+                # - If Self/Team: Only allowed in 'open' mode.
+                # - If Rival: Requires Score > 4.
                 room = self.game_manager.toggle_not_gate(sid, target_sid, "demo-room")
+                
                 if room:
-                    return f"Successfully sabotaged {target_player_name}'s card with NOT gate!"
-                return "Failed to apply NOT gate. Check score (>4) and time remaining (>5s)."
+                    is_self = (my_team_id == target_found_team_id)
+                    if is_self:
+                        return f"Successfully removed/toggled NOT gate on {target_player_name}."
+                    return f"Successfully sabotaged {target_player_name} with NOT gate!"
+                    
+                return "Failed to toggle NOT gate. Check rules: \n- Self/Team: Only in 'Force Open' mode.\n- Rival: Need score > 4 and time > 5s."
             except Exception as e:
                 print(f"[ERROR] apply_not_gate failed: {e}")
                 return f"Error applying NOT gate: {str(e)}"
