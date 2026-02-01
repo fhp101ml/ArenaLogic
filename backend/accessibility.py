@@ -347,9 +347,22 @@ class AccessibilityManager:
                 return "Survey submitted successfully! Thank you for your feedback."
             else:
                 return "Error submitting survey. Please try again."
+        
+        @tool
+        async def close_survey(sid: str):
+            """
+            Close the survey modal without submitting.
+            Call this when user wants to cancel or close the survey.
+            """
+            # Clear any survey state
+            if sid in self.survey_states:
+                del self.survey_states[sid]
+            # Emit close event to frontend
+            await self.sio.emit('survey_close', {}, to=sid)
+            return "Survey closed."
 
         self.tools = [vote, get_game_state, client_fill_form, confirm_join_game, apply_not_gate, 
-                      start_survey, survey_rate, survey_notes, survey_submit]
+                      start_survey, survey_rate, survey_notes, survey_submit, close_survey]
         
         self.system_prompt = """You are the 'Hacker Node', an AI assistant for a Logic Gates game.
 Your user is blind or visually impaired. You act as their eyes and hands.
@@ -405,6 +418,10 @@ AVAILABLE TOOLS:
 9. `survey_submit(sid, player_name)` - Submit completed survey
    - Only call when all 4 ratings are complete AND user confirms
    - Example: "enviar encuesta" → call survey_submit(sid, user_name)
+
+10. `close_survey(sid)` - Close survey without submitting
+   - Use when user wants to cancel or close: "cerrar", "cancelar", "no quiero"
+   - Example: "cerrar encuesta" → call close_survey(sid)
 
 SURVEY WORKFLOW:
 1. User: "quiero hacer la encuesta" → call start_survey(sid)

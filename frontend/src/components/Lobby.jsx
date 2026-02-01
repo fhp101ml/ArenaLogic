@@ -24,7 +24,7 @@ const Lobby = () => {
         nameInputRef.current?.focus();
     }, []);
 
-    // Listen for voice-triggered survey start
+    // Listen for voice-triggered survey start/close
     useEffect(() => {
         if (!socket) return;
 
@@ -33,10 +33,17 @@ const Lobby = () => {
             setShowSurvey(true);
         };
 
+        const handleSurveyClose = () => {
+            console.log('[LOBBY] Voice survey close received');
+            setShowSurvey(false);
+        };
+
         socket.on('survey_voice_start', handleSurveyVoiceStart);
+        socket.on('survey_close', handleSurveyClose);
 
         return () => {
             socket.off('survey_voice_start', handleSurveyVoiceStart);
+            socket.off('survey_close', handleSurveyClose);
         };
     }, [socket]);
 
