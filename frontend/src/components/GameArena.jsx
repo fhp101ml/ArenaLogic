@@ -230,7 +230,9 @@ const GameArena = () => {
     const votes = myTeam ? Object.values(myTeam.players).map(p => p.vote_value).filter(v => v !== null) : [];
     const everyoneVoted = votes.length === totalPlayers;
     const allAgree = votes.length > 0 && votes.every(v => v === votes[0]);
-    const showMismatch = !allAgree && votes.length > 1;
+    // Respect vote privacy toggle
+    const hideVoteInfo = gameState.hide_vote_info === true;
+    const showMismatch = !hideVoteInfo && !allAgree && votes.length > 1;
     const teamConsensus = (everyoneVoted && allAgree) ? votes[0] : null;
 
     // --- VISUALIZATION HELPERS ---
@@ -541,6 +543,8 @@ const GameArena = () => {
                                                 <div style={{ fontSize: '12px' }}>
                                                     {votes.length < totalPlayers ? (
                                                         <span className="text-info fw-black animate-pulse-glow">Awaiting team ({votes.length}/{totalPlayers})</span>
+                                                    ) : hideVoteInfo ? (
+                                                        <span className="text-muted fw-bold">🗳️ Votes Recorded (Encrypted)</span>
                                                     ) : showMismatch ? (
                                                         <span className="text-warning animate-bounce">⚠️ Voting Mismatch</span>
                                                     ) : teamConsensus !== null ? (

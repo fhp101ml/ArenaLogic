@@ -215,6 +215,25 @@ async def toggle_accessibility(sid, data):
     await sio.emit('error', {'message': 'Player not found'}, to=sid)
 
 @sio.event
+async def toggle_vote_privacy(sid, data):
+    """Operator toggles whether vote discrepancy info is hidden from voice assistant"""
+    room_id = data.get('room_id')
+    room = game_manager.rooms.get(room_id)
+    
+    if not room:
+        await sio.emit('error', {'message': 'Room not found'}, to=sid)
+        return
+    
+    # Only operator can toggle
+    if room.operator_sid != sid:
+        await sio.emit('error', {'message': 'UNAUTHORIZED: Only operator can toggle vote privacy'}, to=sid)
+        return
+    
+    room.hide_vote_info = not getattr(room, 'hide_vote_info', False)
+    print(f"[VOTE_PRIVACY] Room {room_id} hide_vote_info: {room.hide_vote_info}")
+    await broadcast_room_state(room_id)
+
+@sio.event
 async def chat_message(sid, data):
     """Player sends a chat message to their team"""
     room_id = data.get('room_id')
@@ -374,6 +393,7 @@ async def broadcast_room_state(room_id):
             'logic_mode': room.logic_mode,
             'max_players_per_team': room.max_players_per_team,
             'not_lockout_time': room.not_lockout_time,
+            'hide_vote_info': getattr(room, 'hide_vote_info', False),
             'target_gate': room.target_gate,
             'target_gates': room.target_gates,
             'teams': {

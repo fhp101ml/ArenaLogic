@@ -34,6 +34,19 @@ const AccessibilityControl = () => {
             socket.off('voice_response');
         };
     }, [socket, setDraftProfile]);
+    // Auto-activate when backend says accessibility is enabled
+    useEffect(() => {
+        if (!socket || !gameState) return;
+
+        const myPlayer = Object.values(gameState.teams || {})
+            .flatMap(team => Object.values(team.players || {}))
+            .find(p => p.sid === socket.id);
+
+        if (myPlayer?.accessibility_enabled && !isActive) {
+            console.log("[ACCESSIBILITY] Auto-activating based on backend state");
+            setIsActive(true);
+        }
+    }, [gameState, socket, isActive]);
 
     // Auto-narration on game state changes
     useEffect(() => {

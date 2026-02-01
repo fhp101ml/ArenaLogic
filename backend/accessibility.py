@@ -138,8 +138,17 @@ class AccessibilityManager:
             """
             Actually joins the game. Call this ONLY after user confirmation.
             """
+            # Ensure avatar is mapped to emoji
+            avatar_emoji = AVATAR_MAP.get(avatar.lower(), avatar)
+            if avatar_emoji not in ['🦁', '🐯', '🐻', '🐲', '🦄', '🤖', '👽', '👻', '⚡', '🔥', '💧', '🌪️']:
+                # If mapped value isn't valid, try to find it in the map values, otherwise default
+                if avatar in AVATAR_MAP.values():
+                    avatar_emoji = avatar
+                else:
+                    avatar_emoji = '🦁'
+
             room_id = "demo-room" 
-            success, msg = self.game_manager.join_room(sid, room_id, name, "player", None, avatar)
+            success, msg = self.game_manager.join_room(sid, room_id, name, "player", None, avatar_emoji)
             if success:
                 # CRITICAL: Join the Socket.IO room so the user receives broadcasts
                 await self.sio.enter_room(sid, room_id)
@@ -210,7 +219,7 @@ class AccessibilityManager:
             - "sabotage player X" / "apply NOT to X"
             - "invert X's card" / "put NOT on X"
             
-            Requirements: Your team needs score > 0 and time > 5s
+            Requirements: Your team needs score > 4 and time > 5s
             """
             try:
                 # Find target player SID by name in rival teams
@@ -235,7 +244,7 @@ class AccessibilityManager:
                 room = self.game_manager.toggle_not_gate(sid, target_sid, "demo-room")
                 if room:
                     return f"Successfully sabotaged {target_player_name}'s card with NOT gate!"
-                return "Failed to apply NOT gate. Check score (>0) and time remaining (>5s)."
+                return "Failed to apply NOT gate. Check score (>4) and time remaining (>5s)."
             except Exception as e:
                 print(f"[ERROR] apply_not_gate failed: {e}")
                 return f"Error applying NOT gate: {str(e)}"
@@ -425,6 +434,11 @@ Your user is blind or visually impaired. You act as their eyes and hands.
 - ✅ DO execute: User's explicit vote command without hesitation
 - ✅ DO respond: "You can vote 0 or 1. What would you like to vote?"
 
+**CRITICAL RULE - VOTE PRIVACY**:
+- Check `context.state.hide_vote_info`
+- If TRUE: ❌ NEVER reveal if votes match or mismatch. Only say "votes recorded".
+- If FALSE: ✅ You CAN say "votes match" or "votes disagree" (but NEVER reveal specific rival votes).
+
 The user must make their own decision. Your role is to EXECUTE commands, not to advise.
 
 AVAILABLE TOOLS:
@@ -435,6 +449,7 @@ AVAILABLE TOOLS:
    
 2. `get_game_state(sid)` - Read current game information
    - Provide: gate type, card values, score, time left
+   - Check `hide_vote_info`: If true, do NOT mention vote agreement/disagreement.
    - NEVER calculate the expected output or suggest the answer
    - Example response: "Your gate is AND, your card is 1, time left is 25 seconds"
    
@@ -451,7 +466,7 @@ AVAILABLE TOOLS:
 5. `apply_not_gate(sid, target_player_name)` - Sabotage a rival player
    - Use when: User wants to sabotage/invert a rival's card
    - Example: "sabotage player Alex" → call apply_not_gate(sid, "Alex")
-   - Requires: score > 0 and remaining time > 5 seconds
+   - Requires: score > 4 and remaining time > 5 seconds
 
 6. `start_survey(sid)` - Start voice-guided survey
    - Opens survey modal and starts guided flow

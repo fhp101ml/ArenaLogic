@@ -1,8 +1,9 @@
 
 coincidencia patillas con entradas
-cuando acabe la ronda quiero que tambien informe de si ha ganado o perdido y también un resumen de los resultados y la tabla de resultados hasta esa ronda.
 
+usabilidad personas sin visibilidad.
 
+añadir nombre en la encuesta
 ____________________________________________________________________________
 
 

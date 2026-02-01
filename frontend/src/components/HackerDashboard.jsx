@@ -161,6 +161,22 @@ const HackerDashboard = ({ gameState, onStartRound, onToggleNot, onKickPlayer, o
                                     <Form.Text className="text-danger opacity-75 x-small mt-1 d-block text-center">
                                         Resets round to 0 and clears all scores
                                     </Form.Text>
+
+                                    <hr className="border-secondary opacity-25 my-3" />
+
+                                    {/* Vote Privacy Toggle */}
+                                    <Button
+                                        variant={gameState.hide_vote_info ? "warning" : "outline-secondary"}
+                                        className="w-100 fw-bold tracking-widest text-uppercase"
+                                        onClick={() => socket?.emit('toggle_vote_privacy', { room_id: gameState.id })}
+                                    >
+                                        {gameState.hide_vote_info ? '👥❓ INFO COMPAÑEROS OCULTA' : '👥✓ INFO COMPAÑEROS VISIBLE'}
+                                    </Button>
+                                    <Form.Text className="text-warning opacity-75 x-small mt-1 d-block text-center">
+                                        {gameState.hide_vote_info
+                                            ? 'El asistente NO revelará si los votos coinciden'
+                                            : 'El asistente puede indicar si los votos coinciden'}
+                                    </Form.Text>
                                 </Form.Group>
 
                                 {/* Target Gate Selection (Competitive Mode - SINGLE) */}

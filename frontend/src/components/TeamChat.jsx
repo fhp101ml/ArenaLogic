@@ -38,7 +38,7 @@ const TeamChat = ({ socket, room, teamId, myName }) => {
     };
 
     return (
-        <div className="position-fixed bottom-0 end-0 p-3 z-[1000]" style={{ maxWidth: '350px', width: '100%' }}>
+        <div className="position-fixed end-0 p-3 z-[1000]" style={{ maxWidth: '350px', width: '100%', top: '50%', transform: 'translateY(-50%)' }}>
             <AnimatePresence>
                 {isOpen && (
                     <motion.div

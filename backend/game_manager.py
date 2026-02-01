@@ -72,12 +72,12 @@ class Room:
     not_lockout_time: int = 5 # Seconds before round end where NOT is disabled
     
     # Game Logic State
-    target_gate: str = "AND"
-    target_gates: List[str] = field(default_factory=lambda: ["AND"])
-    logic_requirements: Dict = field(default_factory=dict)
+    target_gate: str = 'AND' # Logic gate for competitive mode
+    target_gates: Dict[str, str] = field(default_factory=dict) # Per-team gates for asymmetric mode
+    logic_mode: str = 'predict' # 'predict' (0/1) or 'open' (force 1)
+    hide_vote_info: bool = False # Checkbox: Hide "votes don't match" info from AI narrator
     
     # Logic Objectives: 'predict' (Guess Output) or 'open' (Force Output 1)
-    logic_mode: str = 'predict'
     logic_requirements: Dict[str, bool] = field(default_factory=dict) # Requirements per team maybe? 
     # Actually, for AND, the goal is always Output=1.
     # So for AND, Logic(A) AND Logic(B)... = 1.
@@ -232,14 +232,10 @@ class GameManager:
             
             if is_self_interaction and room.logic_mode != 'open':
                 return None # Players can only toggle self-NOT in 'open' mode
-            
             if is_rival_interaction:
-                 # Check points for sabotage
-                 if requester_team.score <= 0: # Relaxed from 4, maybe just needs positive score? Or cost is 1.
-                     # Let's keep it accessible but cost points.
-                     # If score is 0, maybe can't sabotage?
-                     if requester_team.score < 1:
-                         return None
+                  # Check points for sabotage (User requirement: > 4 points)
+                  if requester_team.score <= 4:
+                      return None
             
             # Apply Toggle
             target_team.players[target_sid].has_not_gate = not target_team.players[target_sid].has_not_gate

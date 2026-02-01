@@ -34,3 +34,9 @@ backend/*.log
 
 # Artifacts/Gemini Brain (Internal)
 .gemini/
+interaction_template/
+
+TODO.md
+TODO
+*.csv
+  
