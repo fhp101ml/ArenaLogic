@@ -376,6 +376,8 @@ async def voice_input(sid, data):
                 if sid in team.players:
                     await broadcast_room_state(room.id)
                     break
+    else:
+        await sio.emit('voice_response', {'text': 'No se detectó audio o comando no reconocido.', 'audio': None}, to=sid)
 
 async def broadcast_room_state(room_id):
     room = game_manager.rooms.get(room_id)

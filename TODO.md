@@ -1,9 +1,12 @@
 
 coincidencia patillas con entradas
 
-usabilidad personas sin visibilidad.
-
+accesibilidad 
 añadir nombre en la encuesta
+
+cuando en el modo de force open yo modifque las puertas no se debe informar ya que genera confusión
+
+Esperar al menos 5 segundos para ver si hay más de una notificación o hacer una cola con rabbit para no enviar mensajes de voz a la vez
 ____________________________________________________________________________
 
 

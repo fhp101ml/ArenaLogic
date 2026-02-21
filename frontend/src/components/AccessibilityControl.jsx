@@ -10,6 +10,7 @@ const AccessibilityControl = () => {
     const [isListening, setIsListening] = useState(false);
     const [isActive, setIsActive] = useState(false);
     const [processing, setProcessing] = useState(false);
+    const [lastMessage, setLastMessage] = useState("");
 
     // Refs for race-condition free handling
     const audioChunksRef = useRef([]);
@@ -24,6 +25,10 @@ const AccessibilityControl = () => {
         socket.on('voice_response', (data) => {
             console.log("Voice Response:", data);
             setProcessing(false);
+            if (data.text) {
+                setLastMessage(data.text);
+                setTimeout(() => setLastMessage(""), 8000); // Clear after 8s
+            }
             if (data.audio) {
                 const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
                 audio.play().catch(e => console.error("Audio play error:", e));
@@ -247,10 +252,11 @@ const AccessibilityControl = () => {
                 const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
 
                 // VALIDATION: Ignore if too short (< 0.5s) or empty
-                if (audioBlob.size > 2000) {
+                console.log(`[AUDIO] Recording stopped. Blob size: ${audioBlob.size} bytes`);
+                if (audioBlob.size > 200) { // Reduced threshold from 2000 to 200
                     sendAudio(audioBlob);
                 } else {
-                    console.warn("Audio recording too short, discarding.");
+                    console.warn(`[AUDIO] Audio recording too short or empty (${audioBlob.size} bytes), discarding.`);
                 }
 
                 // Cleanup
@@ -328,6 +334,11 @@ const AccessibilityControl = () => {
             </div>
 
             <div className="text-center">
+                {lastMessage && (
+                    <div className="alert alert-dark border border-info text-info p-2 mb-3 text-start shadow-sm" style={{ fontSize: '12px', lineHeight: '1.4' }}>
+                        <strong>[HACKER_NODE]: </strong> {lastMessage}
+                    </div>
+                )}
                 {processing ? (
                     <div className="my-3 text-warning">
                         <Spinner animation="grow" size="sm" /> PROCESSING...

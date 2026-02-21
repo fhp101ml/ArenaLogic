@@ -28,6 +28,9 @@ class ActionCaptureCallback(BaseCallbackHandler):
     
     def on_tool_end(self, output: str, **kwargs: Any) -> Any:
         # Check if the tool output is our JSON action
+        tool_name = kwargs.get("name", "unknown")
+        print(f"[CALLBACK DEBUG] Tool '{tool_name}' finished")
+        
         try:
             # Handle both string and ToolMessage object
             if hasattr(output, 'content'):
@@ -35,14 +38,12 @@ class ActionCaptureCallback(BaseCallbackHandler):
             else:
                 output_str = str(output)
             
-            print(f"[CALLBACK DEBUG] on_tool_end called with output: {output_str[:200] if len(output_str) > 200 else output_str}")
-            
             data = json.loads(output_str)
             if isinstance(data, dict) and "action" in data:
-                print(f"[CALLBACK DEBUG] Captured action: {data}")
+                print(f"[CALLBACK DEBUG] Action captured from '{tool_name}': {data}")
                 self.actions.append(data)
-        except Exception as e:
-            print(f"[CALLBACK DEBUG] Failed to parse as JSON: {e}")
+        except Exception:
+            # Not all tools return JSON (e.g., get_game_state returns plain text)
             pass
 
 class AccessibilityManager:
@@ -78,13 +79,10 @@ class AccessibilityManager:
 
         @tool
         def get_game_state(sid: str) -> str:
-            """Get current game status including round number, score, gate type, and player's card.
-            
-            Use this when user asks:
-            - "What's happening?" / "What's the status?"
-            - "What's my score?"
-            - "What gate is it?" / "What's the current gate?"
-            - "What's my card?"
+            """
+            Retrieve the technical status of the game (rounds, scores, logic gates, current cards).
+            Use this ONLY when the user asks about points, rounds, or the current logic gate during active play.
+            DO NOT use this for navigating, joining, or opening survey/instructions.
             """
             try:
                 for room in self.game_manager.rooms.values():
@@ -274,9 +272,9 @@ class AccessibilityManager:
         @tool
         async def start_survey(sid: str):
             """
-            Start filling out the satisfaction survey.
-            Call this when user wants to do the survey by voice.
-            Returns the first question to ask.
+            Opens the satisfaction survey form/modal on the screen to start a voice or manual survey.
+            Use this when the user says: "abrir encuesta", "formulario de satisfacción", "hacer el cuestionario", "start survey".
+            This is the ONLY tool to open the survey interface.
             """
             self.survey_states[sid] = {"ratings": {}, "notes": ""}
             # Emit to open survey modal on client
@@ -437,6 +435,10 @@ class AccessibilityManager:
         self.system_prompt = """You are the 'Hacker Node', an AI assistant for a Logic Gates game.
 Your user is blind or visually impaired. You act as their eyes and hands.
 
+**SESSION ID (SID) EXTRACTION**:
+Every user message ends with current session info like `(SID: abc123)`.
+Extract the `abc123` part and use it as the `sid` argument for ALL tools.
+
 **CRITICAL RULE - NEVER SUGGEST VOTES**:
 - ❌ NEVER say: "You should vote 0", "The answer is 1", "I recommend voting zero"
 - ❌ NEVER calculate or suggest the correct answer
@@ -450,6 +452,13 @@ Your user is blind or visually impaired. You act as their eyes and hands.
 - If FALSE: ✅ You CAN say "votes match" or "votes disagree" (but NEVER reveal specific rival votes).
 
 The user must make their own decision. Your role is to EXECUTE commands, not to advise.
+
+**TOOL PRIORITIZATION**:
+- If user wants to see instructions/rules -> call `open_instructions`.
+- If user wants to hear instructions/rules -> call `read_instructions`.
+- If user wants to open the survey/satisfaction form -> call `start_survey`.
+- If user wants to know score/points/round/gate -> call `get_game_state`.
+- If user wants identifier (name/avatar) -> call `client_fill_form`.
 
 AVAILABLE TOOLS:
 1. `vote(sid, value)` - Submit a vote (0 or 1) for the current game round
@@ -478,9 +487,8 @@ AVAILABLE TOOLS:
    - Example: "sabotage player Alex" → call apply_not_gate(sid, "Alex")
    - Requires: score > 4 and remaining time > 5 seconds
 
-6. `start_survey(sid)` - Start voice-guided survey
-   - Opens survey modal and starts guided flow
-   - Example: "quiero hacer la encuesta" → call start_survey(sid)
+6. `start_survey(sid)` - OPENS the satisfaction survey modal/form.
+   - Use when user asks to "abrir encuesta", "hacer el formulario", "survey", etc.
 
 7. `survey_rate(sid, question_id, rating)` - Rate a survey question
    - question_id: "gameplay", "accessibility", "fun", "recommend"
@@ -514,27 +522,9 @@ AVAILABLE TOOLS:
 
 **IMPORTANT - FLEXIBLE INTERPRETATION**:
 Do NOT interpret user commands literally. Understand the USER'S INTENT:
-- "ver instrucciones" = "abrir instrucciones" = "las reglas" → open_instructions
-- "cuéntame cómo funciona" = "explícame el juego" → read_instructions  
-- "quiero votar cero" = "voto 0" = "mi voto es cero" → vote(sid, 0)
-- "sabotea al jugador X" = "ponle NOT a X" → apply_not_gate
-
-SURVEY WORKFLOW:
-1. User: "quiero hacer la encuesta" → call start_survey(sid)
-2. Ask: "¿Cómo calificas la jugabilidad del 1 al 10?"
-3. User: "8" → call survey_rate(sid, "gameplay", 8)
-4. Ask: "Registrado 8 para jugabilidad. ¿Cómo calificas la accesibilidad?"
-5. Continue until all 4 questions are rated
-6. Ask: "¿Deseas añadir algún comentario? Si no, di 'enviar encuesta'"
-7. User: "añade que me gustó mucho" → call survey_notes(sid, "me gustó mucho")
-8. User: "enviar" → call survey_submit(sid, player_name)
-
-WORKFLOW for registration:
-1. User: "My name is Alex"
-2. You: Call `client_fill_form(sid, "Alex", "león")`
-3. You: Tell user "I've set your name to Alex. Say 'confirm' to join the game."
-4. User: "confirm"
-5. You: Call `confirm_join_game(sid, "Alex", "🦁")`
+- "ver instrucciones" / "abrir reglas" -> `open_instructions`
+- "abre el formulario" / "haz el cuestionario" -> `start_survey`
+- "¿cuántos puntos llevo?" / "¿qué ronda es?" -> `get_game_state`
 
 Be concise and professional. Always USE THE TOOLS when appropriate, don't just describe what you would do."""
         
@@ -556,6 +546,11 @@ Be concise and professional. Always USE THE TOOLS when appropriate, don't just d
         """Converts audio to text using OpenAI Whisper with Local Fallback."""
         if not self.client: return "Error: No API Key"
         
+        print(f"[STT DEBUG] Received audio_bytes of type {type(audio_bytes)} and size {len(audio_bytes)}")
+        # Save a debug copy to disk so we can inspect it if needed
+        with open("debug_last_audio.webm", "wb") as f:
+            f.write(audio_bytes)
+            
         with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as temp:
             temp.write(audio_bytes)
             temp_path = temp.name
@@ -564,11 +559,19 @@ Be concise and professional. Always USE THE TOOLS when appropriate, don't just d
             # Try API First
             with open(temp_path, "rb") as audio_file:
                 transcript = await self.client.audio.transcriptions.create(
-                    model="gpt-4o-mini-transcribe", 
+                    model="whisper-1", 
                     file=audio_file,
-                    language="es"
+                    language="es",
+                    prompt="Este es un comando de voz para un juego." # helps reduce hallucinations
                 )
-            return transcript.text
+            text = transcript.text.strip()
+            # Filter common Whisper silence hallucinations
+            hallucinations = ["amara.org", "subtítulos", "subtitulos", "traducido por"]
+            if any(h in text.lower() for h in hallucinations) or len(text) < 2:
+                print(f"[STT] Ignored hallucination/silence: {text}")
+                return ""
+                
+            return text
         except Exception as e:
             print(f"STT API Error: {e}. Falling back to Local Whisper...")
             try:

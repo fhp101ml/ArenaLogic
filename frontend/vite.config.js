@@ -7,6 +7,9 @@ export default defineConfig({
   server: {
     allowedHosts: [
       'b1a4506be3a69034-95-20-93-248.serveousercontent.com'
-    ]
+    ],
+    watch: {
+      usePolling: true
+    }
   }
 })
