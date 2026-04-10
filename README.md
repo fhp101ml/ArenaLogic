@@ -27,11 +27,14 @@ A real-time competitive multiplayer game where teams collaborate to solve logic 
   - Countdown beeps in last 5 seconds of each round
   - Success fanfare on round win
   - Failure sound on round loss
-- **🤖 AI Agent**: LangGraph-powered assistant with conversation memory
-  - Never suggests which vote to choose (player decides)
-  - Avatar name recognition (rayo→⚡, gota→💧, león→🦁)
-  - Voice-guided survey completion
-  - **Voice-controlled instructions**: "ver instrucciones", "leer las reglas", "cerrar instrucciones"
+- **🤖 AI Agent (LangGraph)**: Multi-character system with conversation memory.
+  - **Dynamic Character Management**: Create and edit assistant guides (e.g., superhero, humorist, teacher) directly from the UI.
+  - **Child-Safety Moderation**: Mandatory real-time moderation layer for user inputs and assistant outputs.
+  - **Premium Animations**: Spectacular vocal-responsive animations for listening, thinking, and speaking states.
+  - **Dynamic Persona**: AI can switch between premium 3D visuals and classic icons during interaction.
+  - Never suggests which vote to choose - players maintain full autonomy.
+  - Avatar name recognition (rayo→⚡, gota→💧, león→🦁).
+  - **Voice-controlled instructions**: "ver instrucciones", "leer las reglas", "cerrar instrucciones".
 - **🎛️ Operator Control**: Enable/disable accessibility per player (🔊/🔇)
 - **🌐 Multilingual**: Spanish voice support (Edge-TTS)
 - **⚙️ Local STT**: Whisper model fallback for privacy
