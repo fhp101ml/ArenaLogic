@@ -108,8 +108,8 @@ export const LogicGate = ({ active, type = "AND", inputValues = [null, null, nul
     // Inverters add +6 (radius) -> so ~96-99.
 
     return (
-        <div className="position-relative d-flex align-items-center justify-content-center w-100 h-100" style={{ minHeight: '150px' }}>
-            <svg viewBox="0 0 120 100" className="w-100 h-100 overflow-visible" style={{ filter: 'drop-shadow(0 0 15px rgba(59, 130, 246, 0.3))' }}>
+        <div className="position-relative d-flex align-items-center justify-content-center w-100" style={{ minHeight: '120px', maxHeight: '220px' }}>
+            <svg viewBox="0 0 120 100" className="overflow-visible" style={{ filter: 'drop-shadow(0 0 15px rgba(59, 130, 246, 0.3))', width: '100%', maxWidth: '320px', height: 'auto', display: 'block', margin: '0 auto' }}>
                 {/* Inputs Pins */}
                 {inputYPositions.map((y, idx) => {
                     const val = inputValues[idx];

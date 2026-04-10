@@ -6,20 +6,23 @@ import { Container, Row, Col, Card, Button, Form, InputGroup } from 'react-boots
 import { Link } from 'react-router-dom';
 import SurveyModal from './SurveyModal';
 import GameInstructions from './GameInstructions';
+import AiAssistantModal from './AiAssistantModal';
 
 const AVATARS = ['🦁', '🐯', '🐻', '🐲', '🦄', '🤖', '👽', '👻', '⚡', '🔥', '💧', '🌪️'];
 
 const Lobby = () => {
-    const { socket } = useSocket();
+    const { socket, isConnected } = useSocket();
     const { draftProfile, setDraftProfile, setPlayer } = useGameStore();
 
     // Destructure from store state
     const { name, avatar, role } = draftProfile;
 
     const [roomId, setRoomId] = useState('demo-room');
-    const [teamId, setTeamId] = useState('A');
+    const [selectedTeamId, setSelectedTeamId] = useState(null);
+    const [roomInfo, setRoomInfo] = useState(null);
     const [showSurvey, setShowSurvey] = useState(false);
     const [showInstructions, setShowInstructions] = useState(false);
+    const [showAiAssistant, setShowAiAssistant] = useState(false);
     const nameInputRef = useRef(null);
 
     useEffect(() => {
@@ -56,6 +59,7 @@ const Lobby = () => {
         socket.on('instructions_open', handleInstructionsOpen);
         socket.on('instructions_close', handleInstructionsClose);
 
+
         return () => {
             socket.off('survey_voice_start', handleSurveyVoiceStart);
             socket.off('survey_close', handleSurveyClose);
@@ -63,6 +67,46 @@ const Lobby = () => {
             socket.off('instructions_close', handleInstructionsClose);
         };
     }, [socket]);
+
+    // Polling for room info when RoomID is set and socket connected
+    useEffect(() => {
+        if (!socket || !isConnected || !roomId) {
+            setRoomInfo(null);
+            return;
+        }
+
+        // Room info listener
+        const handleRoomInfo = (info) => {
+            console.log('[LOBBY] Room info received:', info);
+            setRoomInfo(info);
+            // Default select first available team if none selected
+            if (info.teams && Object.keys(info.teams).length > 0) {
+                const teams = Object.values(info.teams);
+                const available = teams.find(t => t.player_count < info.max_players_per_team);
+                if (available && !selectedTeamId) {
+                    setSelectedTeamId(available.id);
+                }
+            }
+        };
+
+        socket.on('room_info', handleRoomInfo);
+
+        // Function to fetch info
+        const fetchInfo = () => {
+            socket.emit('get_room_info', { room_id: roomId });
+        };
+
+        // Initial fetch
+        fetchInfo();
+
+        // Setup interval
+        const intervalId = setInterval(fetchInfo, 3000);
+
+        return () => {
+            socket.off('room_info', handleRoomInfo);
+            clearInterval(intervalId);
+        };
+    }, [socket, isConnected, roomId, selectedTeamId]);
 
     const updateProfile = (field, value) => {
         setDraftProfile({ [field]: value });
@@ -73,13 +117,14 @@ const Lobby = () => {
         setPlayer({
             name,
             role,
-            team_id: null,
+            team_id: selectedTeamId,
             avatar
         });
         socket.emit('join_game', {
             room_id: roomId,
             name,
             role,
+            team_id: selectedTeamId,
             avatar
         });
     };
@@ -182,13 +227,42 @@ const Lobby = () => {
                                             className="mb-4"
                                         >
                                             <h6 className="text-info text-uppercase fw-bold mb-3">4. Unit Assignment</h6>
-                                            <div className="p-3 border border-secondary border-dashed rounded bg-black bg-opacity-20 text-center">
-                                                <div className="text-warning small fw-bold tracking-widest animate-pulse">
-                                                    [ AUTO-ASSIGNMENT PROTOCOL ACTIVE ]
-                                                </div>
-                                                <div className="text-muted x-small mt-1 uppercase">
-                                                    Units will be distributed sequentially to Alpha, Beta, etc.
-                                                </div>
+                                            <div className="d-flex flex-column gap-2">
+                                                {roomInfo?.teams ? (
+                                                    Object.values(roomInfo.teams).map((team) => {
+                                                        const isFull = team.player_count >= roomInfo.max_players_per_team;
+                                                        const isSelected = selectedTeamId === team.id;
+
+                                                        return (
+                                                            <Card
+                                                                key={team.id}
+                                                                className={`p-2 transition-all cursor-pointer border-2 shadow-sm ${isSelected ? 'bg-info bg-opacity-20 border-info' : 'bg-transparent border-secondary opacity-75'} ${isFull ? 'opacity-25 grayscale cursor-not-allowed' : ''}`}
+                                                                onClick={() => !isFull && setSelectedTeamId(team.id)}
+                                                            >
+                                                                <div className="d-flex justify-content-between align-items-center px-2">
+                                                                    <div className="d-flex align-items-center gap-2">
+                                                                        <div className={`rounded-circle ${isSelected ? 'bg-info' : 'bg-secondary'}`} style={{ width: '8px', height: '8px' }}></div>
+                                                                        <span className={`fw-bold ${isSelected ? 'text-info' : 'text-light'}`}>{team.name}</span>
+                                                                    </div>
+                                                                    <div className="small font-monospace">
+                                                                        {team.player_count} / {roomInfo.max_players_per_team}
+                                                                    </div>
+                                                                </div>
+                                                            </Card>
+                                                        );
+                                                    })
+                                                ) : (
+                                                    <div className="p-3 border border-secondary border-dashed rounded bg-black bg-opacity-20 text-center">
+                                                        <div className="text-muted x-small uppercase animate-pulse">
+                                                            Scanning for active units...
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="mt-2 text-center">
+                                                <small className="text-muted x-small uppercase tracking-widest">
+                                                    Manual team selection enabled
+                                                </small>
                                             </div>
                                         </motion.div>
                                     )}
@@ -218,13 +292,21 @@ const Lobby = () => {
                         <Button
                             variant="outline-warning"
                             onClick={() => setShowSurvey(true)}
-                            className="px-4"
+                            className="px-4 me-2"
                         >
                             📋 Encuesta de Satisfacción
+                        </Button>
+                        <Button
+                            variant="outline-info"
+                            onClick={() => setShowAiAssistant(true)}
+                            className="px-4"
+                        >
+                            🤖 Hablar con IA
                         </Button>
                     </div>
                 </div>
                 <SurveyModal show={showSurvey} onClose={() => setShowSurvey(false)} />
+                <AiAssistantModal show={showAiAssistant} onClose={() => setShowAiAssistant(false)} />
                 <GameInstructions
                     isOpen={showInstructions}
                     onClose={() => setShowInstructions(false)}

@@ -38,7 +38,7 @@ const TeamChat = ({ socket, room, teamId, myName }) => {
     };
 
     return (
-        <div className="position-fixed end-0 p-3 z-[1000]" style={{ maxWidth: '350px', width: '100%', top: '50%', transform: 'translateY(-50%)' }}>
+        <div className="w-100">
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
@@ -110,12 +110,12 @@ const TeamChat = ({ socket, room, teamId, myName }) => {
                 <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="text-end"
+                    className="text-center"
                 >
                     <Button
                         variant="info"
                         onClick={() => setIsOpen(true)}
-                        className="rounded-circle shadow-lg d-flex align-items-center justify-content-center p-3 border-2"
+                        className="rounded-circle shadow-lg d-flex align-items-center justify-content-center p-3 border-2 mx-auto"
                         style={{ width: '50px', height: '50px' }}
                     >
                         💬

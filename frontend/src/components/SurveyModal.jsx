@@ -111,11 +111,11 @@ const SurveyModal = ({ show, onClose }) => {
         questions.every(q => ratings[q.id] && ratings[q.id] > 0);
 
     return (
-        <Modal show={show} onHide={handleClose} centered size="lg">
+        <Modal show={show} onHide={handleClose} centered size="lg" scrollable>
             <Modal.Header closeButton className="bg-primary text-white">
                 <Modal.Title>📋 Encuesta de Satisfacción</Modal.Title>
             </Modal.Header>
-            <Modal.Body className="py-4">
+            <Modal.Body className="py-4" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
                 {submitted ? (
                     <div className="text-center py-5">
                         <div style={{ fontSize: '4rem' }}>🎉</div>

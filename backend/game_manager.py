@@ -8,8 +8,8 @@ import time
 GATE_LOGIC = {
     'AND': lambda inputs: all(inputs),
     'OR': lambda inputs: any(inputs),
-    'XOR': lambda inputs: sum(inputs) == 1,
-    'XNOR': lambda inputs: len(set(inputs)) == 1,  # All same
+    'XOR': lambda inputs: sum(inputs) % 2 == 1,
+    'XNOR': lambda inputs: sum(inputs) % 2 == 0,
     'NAND': lambda inputs: not all(inputs),
     'NOR': lambda inputs: not any(inputs)
 }
@@ -20,8 +20,8 @@ GATE_SCORES = {
     'AND': 2,      # Medium-Hard (all 1)
     'NAND': 2,     # Medium-Hard (at least one 0)
     'NOR': 2,      # Medium-Hard (no ones)
-    'XOR': 3,      # Hard (exactly one 1)
-    'XNOR': 3      # Hard (all same)
+    'XOR': 3,      # Hard (parity: odd ones)
+    'XNOR': 3      # Hard (parity: even ones)
 }
 
 GAME_MODES = ['competitive', 'asymmetric', 'campaign']
@@ -115,15 +115,23 @@ class GameManager:
                 room.teams['A'] = Team(id='A', name="Team ALPHA")
                 room.teams['B'] = Team(id='B', name="Team BETA")
 
-            # Sequential filling logic:
-            sorted_team_ids = sorted(room.teams.keys())
             target_team = None
             
-            for tid in sorted_team_ids:
-                team = room.teams[tid]
+            # If team_id is provided, try to join that specific team
+            if team_id and team_id in room.teams:
+                team = room.teams[team_id]
                 if len(team.players) < room.max_players_per_team:
                     target_team = team
-                    break
+                else:
+                    return False, f"Team {team_id} is full."
+            else:
+                # Fallback to sequential filling logic if no team_id or team_id invalid
+                sorted_team_ids = sorted(room.teams.keys())
+                for tid in sorted_team_ids:
+                    team = room.teams[tid]
+                    if len(team.players) < room.max_players_per_team:
+                        target_team = team
+                        break
             
             if not target_team:
                 return False, "All teams are full."
@@ -133,17 +141,66 @@ class GameManager:
             return True, "Success"
         return False, "Invalid role."
 
+    def get_room_info(self, room_id: str):
+        """Get available teams and player counts for a room"""
+        room = self.create_room(room_id)
+        if not room:
+            return None
+        
+        # Initialize default teams if none exist
+        if not room.teams:
+            room.teams['A'] = Team(id='A', name="Team ALPHA")
+            room.teams['B'] = Team(id='B', name="Team BETA")
+            
+        return {
+            'room_id': room_id,
+            'max_players_per_team': room.max_players_per_team,
+            'teams': {
+                tid: {
+                    'id': t.id,
+                    'name': t.name,
+                    'player_count': len(t.players)
+                } for tid, t in room.teams.items()
+            }
+        }
+
     def add_team(self, room_id: str, team_id: str, team_name: str) -> bool:
-        """Allow hacker to add a new team to the room"""
+        """Allow hacker to add a new team to the room (max 15 teams)"""
         room = self.rooms.get(room_id)
         if not room:
             return False
         
         if team_id in room.teams:
             return False
+        
+        if len(room.teams) >= 15:
+            return False  # Max 15 teams
             
         room.teams[team_id] = Team(id=team_id, name=team_name)
         return True
+
+    def remove_team(self, room_id: str, team_id: str) -> tuple:
+        """Remove an empty team from the room (not allowed during active round)"""
+        room = self.rooms.get(room_id)
+        if not room:
+            return False, "Room not found"
+        
+        if room.state == 'PLAYING':
+            return False, "Cannot remove team during active round"
+        
+        team = room.teams.get(team_id)
+        if not team:
+            return False, "Team not found"
+        
+        if len(team.players) > 0:
+            return False, "Cannot remove team with players"
+        
+        # Keep at least 1 team
+        if len(room.teams) <= 1:
+            return False, "Cannot remove last team"
+        
+        del room.teams[team_id]
+        return True, "Team removed"
 
     def set_max_players(self, room_id: str, count: int) -> bool:
         """Set the maximum members allowed per team"""
@@ -264,14 +321,6 @@ class GameManager:
         if room_id in self.rooms and mode in ['predict', 'open']:
             self.rooms[room_id].logic_mode = mode
             return self.rooms[room_id]
-        return None
-
-    def reset_scores(self, room_id: str):
-        room = self.rooms.get(room_id)
-        if room:
-            for team in room.teams.values():
-                team.score = 0
-            return room
         return None
 
     def check_logic(self, room_id: str):
@@ -447,11 +496,14 @@ class GameManager:
 
     def check_gate_logic(self, team: Team) -> bool:
         """Check if a specific team solved their gate"""
-        gate_func =GATE_LOGIC.get(team.current_gate, GATE_LOGIC['AND'])
+        gate_func = GATE_LOGIC.get(team.current_gate, GATE_LOGIC['AND'])
         logic_inputs = []
         
         for player in team.players.values():
-            logic_value = player.is_input_active if not player.has_not_gate else not player.is_input_active
+            # Standard logic evaluation: card_value inverted if has_not_gate
+            logic_value = bool(player.card_value)
+            if player.has_not_gate:
+                logic_value = not logic_value
             logic_inputs.append(logic_value)
         
         return gate_func(logic_inputs)
@@ -495,11 +547,13 @@ class GameManager:
                 team.last_round_penalty = 0
                 team.not_gates_used = 0
                 team.was_sabotaged = False
+                team.last_round_result = None  # Crucial for test_deferred
+                team.solved_current_round = False
                 
                 # Reset all players
                 for player in team.players.values():
                     player.vote_value = None
-                    player.card_value = None
+                    player.card_value = 0 # Default to 0
                     player.has_not_gate = False
             
             return room

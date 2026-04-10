@@ -1,5 +1,6 @@
 from game_manager import GameManager
 from accessibility import AccessibilityManager
+from assistant_logic import AssistantManager
 from surveys import survey_manager
 import asyncio
 import sys
@@ -8,7 +9,12 @@ import socketio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
+sio = socketio.AsyncServer(
+    async_mode='asgi', 
+    cors_allowed_origins='*',
+    ping_timeout=60,
+    ping_interval=25
+)
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
@@ -21,9 +27,10 @@ socket_app = socketio.ASGIApp(sio, app)
 
 game_manager = GameManager()
 
-# Initialize accessibility AFTER sio is defined
+# Initialize managers AFTER sio is defined
 # This is done in the startup event handler below
 accessibility = None
+assistant = None
 
 @app.get("/")
 async def root():
@@ -55,13 +62,21 @@ async def join_game(sid, data):
     
     if success:
         await sio.enter_room(sid, room_id)
-        room = game_manager.rooms[room_id]
         print(f"DEBUG: Broadcasting state for room {room_id}")
-        # Send full state to everyone in room
         await broadcast_room_state(room_id)
     else:
         print(f"DEBUG: Join failed for {sid}: {info}")
         await sio.emit('error', {'message': f'Join Failed: {info}'}, to=sid)
+
+@sio.event
+async def get_room_info(sid, data):
+    """Retrieve available teams and player counts for a room"""
+    room_id = data.get('room_id')
+    info = game_manager.get_room_info(room_id)
+    if info:
+        await sio.emit('room_info', info, to=sid)
+    else:
+        await sio.emit('error', {'message': 'Room not found or could not be initialized'}, to=sid)
 
 @sio.event
 async def start_round(sid, data):
@@ -176,6 +191,57 @@ async def reset_game(sid, data):
     if room and room.operator_sid == sid:
         game_manager.reset_game(room_id)
         await broadcast_room_state(room_id)
+
+@sio.event
+async def add_team(sid, data):
+    """Operator adds a new team to the room"""
+    room_id = data.get('room_id')
+    room = game_manager.rooms.get(room_id)
+    if not room or room.operator_sid != sid:
+        await sio.emit('error', {'message': 'UNAUTHORIZED or room not found'}, to=sid)
+        return
+    if room.state == 'PLAYING':
+        await sio.emit('error', {'message': 'Cannot add team during active round'}, to=sid)
+        return
+
+    # Generate next available team ID: A, B, C ... O (15 teams max)
+    TEAM_IDS = list('ABCDEFGHIJKLMNO')
+    existing = set(room.teams.keys())
+    next_id = next((tid for tid in TEAM_IDS if tid not in existing), None)
+
+    if next_id is None:
+        await sio.emit('error', {'message': 'Maximum number of teams (15) reached'}, to=sid)
+        return
+
+    TEAM_NAMES = {
+        'A': 'Team ALPHA', 'B': 'Team BETA', 'C': 'Team GAMMA',
+        'D': 'Team DELTA', 'E': 'Team EPSILON', 'F': 'Team ZETA',
+        'G': 'Team ETA', 'H': 'Team THETA', 'I': 'Team IOTA',
+        'J': 'Team KAPPA', 'K': 'Team LAMBDA', 'L': 'Team MU',
+        'M': 'Team NU', 'N': 'Team XI', 'O': 'Team OMICRON',
+    }
+    team_name = TEAM_NAMES.get(next_id, f'Team {next_id}')
+    success = game_manager.add_team(room_id, next_id, team_name)
+    if success:
+        await broadcast_room_state(room_id)
+    else:
+        await sio.emit('error', {'message': 'Could not add team'}, to=sid)
+
+@sio.event
+async def remove_team(sid, data):
+    """Operator removes an empty team from the room"""
+    room_id = data.get('room_id')
+    team_id = data.get('team_id')
+    room = game_manager.rooms.get(room_id)
+    if not room or room.operator_sid != sid:
+        await sio.emit('error', {'message': 'UNAUTHORIZED or room not found'}, to=sid)
+        return
+
+    success, msg = game_manager.remove_team(room_id, team_id)
+    if success:
+        await broadcast_room_state(room_id)
+    else:
+        await sio.emit('error', {'message': msg}, to=sid)
 
 @sio.event
 async def toggle_chat(sid, data):
@@ -491,11 +557,46 @@ async def terminal_reader():
         else:
             print(f"UNKNOWN COMMAND: {line.strip()}")
 
+# ==================== ASSISTANT EVENTS ====================
+
+@sio.event
+async def get_assistant_characters(sid, data):
+    """Returns list of available characters for the AI Assistant"""
+    if assistant:
+        chars = []
+        for key, char in assistant.characters.items():
+            chars.append({
+                "id": key,
+                "name": char["name"],
+                "voice": char["voice"]
+            })
+        await sio.emit('assistant_characters', chars, to=sid)
+
+@sio.event
+async def assistant_chat(sid, data):
+    """
+    Handles AI Assistant chat interaction.
+    data: { character: str, audio: bytes/None, text: str/None }
+    """
+    if not assistant:
+        return
+        
+    character = data.get('character', 'superhero')
+    audio_data = data.get('audio')
+    text_input = data.get('text')
+    
+    print(f"[ASSISTANT] Processing chat for {sid} with character {character}")
+    result = await assistant.process_chat(sid, character, audio_bytes=audio_data, text_input=text_input)
+    
+    if result:
+        await sio.emit('assistant_response', result, to=sid)
+
 @app.on_event("startup")
 async def startup_event():
-    global accessibility
+    global accessibility, assistant
     accessibility = AccessibilityManager(game_manager, sio)
-    print("✅ AccessibilityManager initialized with Socket.IO support")
+    assistant = AssistantManager(sio)
+    print("✅ AccessibilityManager & AssistantManager initialized")
     asyncio.create_task(terminal_reader())
 
 async def game_timer(room_id):

@@ -17,6 +17,7 @@ const GameArena = () => {
     const [timeLeft, setTimeLeft] = useState(0);
     const [voteValue, setVoteValue] = useState(null);
     const [selectedVote, setSelectedVote] = React.useState(null);
+    const [summaryDismissed, setSummaryDismissed] = React.useState(false);
     const isMounted = React.useRef(true);
     const lastAlertTime = React.useRef(null);
 
@@ -101,12 +102,29 @@ const GameArena = () => {
         }
     }, [gameState?.state]); // Only re-run when game state changes (PLAYING/not PLAYING)
 
+    // Reset dismiss state when a new round starts
+    React.useEffect(() => {
+        if (gameState?.state === 'PLAYING') {
+            setSummaryDismissed(false);
+        }
+    }, [gameState?.state]);
+
     // Sync local input with socket
     const castVote = (val) => {
         if (!socket || player.role === 'operator') return;
         setVoteValue(val);
         socket.emit('player_input', { vote: val });
     };
+
+    // Sync local voteValue with server state (e.g. when sabotaged, server resets to null)
+    React.useEffect(() => {
+        if (!socket || !gameState) return;
+        const myTeamData = Object.values(gameState.teams || {}).find(t => t.players?.[socket.id]);
+        const myPlayerData = myTeamData?.players?.[socket.id];
+        if (myPlayerData && myPlayerData.vote_value === null && voteValue !== null) {
+            setVoteValue(null);
+        }
+    }, [gameState, socket]);
 
 
 
@@ -160,6 +178,16 @@ const GameArena = () => {
         socket.emit('set_not_lockout', { room_id: gameState.id, seconds });
     };
 
+    const addTeam = () => {
+        if (!socket || player.role !== 'operator') return;
+        socket.emit('add_team', { room_id: gameState.id });
+    };
+
+    const removeTeam = (teamId) => {
+        if (!socket || player.role !== 'operator') return;
+        socket.emit('remove_team', { room_id: gameState.id, team_id: teamId });
+    };
+
     if (!gameState) return <div className="text-white flex items-center justify-center h-screen bg-black">Initializing Uplink...</div>;
     if (!player) return <div className="text-white flex items-center justify-center h-screen bg-black">Loading Player Data...</div>;
 
@@ -182,6 +210,8 @@ const GameArena = () => {
             onSetNotLockout={setNotLockout}
             onResetScores={resetScores}
             onToggleChat={toggleChat}
+            onAddTeam={addTeam}
+            onRemoveTeam={removeTeam}
         />;
     }
 
@@ -236,17 +266,27 @@ const GameArena = () => {
     const teamConsensus = (everyoneVoted && allAgree) ? votes[0] : null;
 
     // --- VISUALIZATION HELPERS ---
+    // Only reveal gate reality (green/red) when the round is FINISHED
     const showGateReality = gameState.state === 'FINISHED';
     const gateIsActive = showGateReality && realOutput === 1;
     const gateGlowClass = gateIsActive ? 'bg-emerald-500/20' : (showGateReality ? 'bg-red-500/10' : 'bg-cyan-900/10');
 
-    const outputHeaderText = gateIsActive
-        ? 'GATE OPEN (1)'
-        : (showGateReality ? 'GATE CLOSED (0)' : 'ANALYZING...');
+    // Gate Output header: only reveal green/red after round ends
+    // During play: show neutral pulse
+    const outputHeaderText = showGateReality
+        ? (gateIsActive ? 'GATE OPEN (1)' : 'GATE CLOSED (0)')
+        : (everyoneVoted ? 'CONSENSUS LOCKED' : 'ANALYZING...');
 
-    const outputHeaderClass = gateIsActive
-        ? 'text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,0.8)]'
-        : (showGateReality ? 'text-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]' : 'text-slate-600/50 animate-pulse');
+    const outputHeaderClass = showGateReality
+        ? (gateIsActive
+            ? 'text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,0.8)]'
+            : 'text-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]')
+        : (everyoneVoted ? 'text-info fw-bold' : 'text-slate-600/50 animate-pulse');
+
+    // Card border: green only when finished+solved, red when finished+failed, neutral during play
+    const outputCardBorder = showGateReality
+        ? (myTeam.solved_current_round ? 'success' : 'danger')
+        : (everyoneVoted ? 'info' : 'secondary');
 
     return (
         <div className="min-vh-100 bg-dark text-white overflow-hidden font-sans">
@@ -257,18 +297,38 @@ const GameArena = () => {
 
             {/* Header / HUD with Bootstrap Navbar */}
             <Navbar bg="black" variant="dark" expand="lg" className="border-bottom border-secondary bg-opacity-50 backdrop-blur z-2">
-                <Container fluid className="px-4">
-                    <Navbar.Brand className="d-flex align-items-center gap-3">
-                        <div className={`rounded-circle shadow-sm ${isPlaying ? 'bg-info animate-pulse' : 'bg-warning'}`} style={{ width: '12px', height: '12px' }}></div>
-                        <div>
-                            <div className="h4 fw-black mb-0 tracking-widest text-info">LOGIC ARENA</div>
-                            <div className="small fw-bold text-success text-uppercase">
-                                MISSION: {(gameState.logic_mode || 'predict') === 'predict' ? 'PREDICT OUTPUT' : 'FORCE OPEN (1)'}
+                <Container fluid className="px-3 px-lg-4">
+                    <Navbar.Brand className="d-flex align-items-center gap-2">
+                        <div className={`rounded-circle shadow-sm flex-shrink-0 ${isPlaying ? 'bg-info animate-pulse' : 'bg-warning'}`} style={{ width: '10px', height: '10px' }}></div>
+                        <div className="d-flex flex-column">
+                            <div className="d-flex align-items-center gap-2">
+                                <div className="h5 h4-lg fw-black mb-0 tracking-widest text-info">LOGIC ARENA</div>
+                                <Badge bg="success" className="x-small fw-black text-uppercase shadow-sm">{myTeam.name}</Badge>
+                            </div>
+                            <div className="x-small fw-bold text-success text-uppercase" style={{ fontSize: '9px' }}>
+                                {(gameState.logic_mode || 'predict') === 'predict' ? 'PREDICT OUTPUT' : 'FORCE OPEN (1)'}
                             </div>
                         </div>
                     </Navbar.Brand>
 
-                    <Nav className="mx-auto d-none d-lg-flex align-items-center gap-4">
+                    {/* Mobile HUD - compact row visible only on small screens (< md) */}
+                    <div className="d-flex d-md-none align-items-center gap-2 ms-auto">
+                        {myTeam.current_gate && (() => {
+                            const gateInfo = getGateInfo(myTeam.current_gate);
+                            return (
+                                <Badge bg="dark" className={`border px-2 py-1 ${gateInfo.color.replace('text-', 'border-')}`}>
+                                    <span className={`fw-black ${gateInfo.color}`}>{gateInfo.symbol} {myTeam.current_gate}</span>
+                                </Badge>
+                            );
+                        })()}
+                        <div className={`fw-black font-monospace px-2 py-1 rounded border ${timeLeft <= 5 ? 'text-danger border-danger animate-pulse' : timeLeft <= 10 ? 'text-warning border-warning' : 'text-light border-secondary'}`} style={{ fontSize: '14px' }}>
+                            {timeLeft}s
+                        </div>
+                        <Badge bg="success" className="px-2 py-1 fw-black">{myTeam.score}pts</Badge>
+                    </div>
+
+                    {/* Desktop HUD (md+) */}
+                    <Nav className="mx-auto d-none d-md-flex align-items-center gap-4">
                         {myTeam.current_gate && (() => {
                             const gateInfo = getGateInfo(myTeam.current_gate);
                             return (
@@ -292,7 +352,7 @@ const GameArena = () => {
                         </Card>
                     </Nav>
 
-                    <div className="d-flex align-items-center gap-3">
+                    <div className="d-none d-md-flex align-items-center gap-3">
                         <Badge bg="secondary" className="p-2 font-monospace">SECURE_LINK: {gameState.id}</Badge>
                     </div>
                 </Container>
@@ -300,17 +360,29 @@ const GameArena = () => {
 
             {/* Round Summary Overlay */}
             <AnimatePresence>
-                {(gameState.state === 'FINISHED' || (gameState.state === 'LOBBY' && gameState.round_number > 0)) && (
+                {(gameState.state === 'FINISHED' || (gameState.state === 'LOBBY' && gameState.round_number > 0)) && !summaryDismissed && (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md"
+                        className="fixed inset-0 z-[100] flex items-start justify-center p-4 bg-black/90 backdrop-blur-md overflow-y-auto"
+                        style={{ WebkitOverflowScrolling: 'touch' }}
                     >
-                        <Card border="info" className="w-full max-w-lg shadow-2xl overflow-hidden border-2" style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}>
-                            <Card.Header className="bg-info text-black py-3 text-center">
-                                <h2 className="display-6 fw-black mb-0 tracking-tighter">DATASTREAM_SUMMARY</h2>
-                                <small className="fw-bold tracking-widest opacity-75">ROUND #{gameState.round_number} ANALYSIS COMPLETE</small>
+                        <Card border="info" className="w-full max-w-lg shadow-2xl overflow-hidden border-2" style={{ backgroundColor: '#0d0d0d' }}>
+                            <Card.Header className="bg-info text-black py-3 d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h2 className="display-6 fw-black mb-0 tracking-tighter">DATASTREAM_SUMMARY</h2>
+                                    <small className="fw-bold tracking-widest opacity-75">ROUND #{gameState.round_number} ANALYSIS COMPLETE</small>
+                                </div>
+                                <Button
+                                    variant="dark"
+                                    size="sm"
+                                    className="rounded-circle fw-black border-0 opacity-75"
+                                    style={{ width: '32px', height: '32px', padding: 0, lineHeight: 1 }}
+                                    onClick={() => setSummaryDismissed(true)}
+                                >
+                                    ✕
+                                </Button>
                             </Card.Header>
                             <Card.Body className="p-4 p-md-5">
                                 <div className="space-y-4 mb-4">
@@ -371,9 +443,9 @@ const GameArena = () => {
             {/* Main Stage - Bootstrap GRID LAYOUT */}
             <main className="flex-grow-1 d-flex align-items-center py-4 z-1">
                 <Container>
-                    <Row className="align-items-center gy-4">
+                    <Row className="align-items-start gy-3">
                         {/* COL 1: TEAM INPUTS */}
-                        <Col lg={4} className="order-3 order-lg-1">
+                        <Col md={4} className="order-2 order-md-1">
                             <Card bg="dark" border="secondary" className="bg-opacity-25 backdrop-blur h-100">
                                 <Card.Header className="bg-transparent border-secondary py-2">
                                     <div className="d-flex justify-content-between align-items-center">
@@ -381,11 +453,11 @@ const GameArena = () => {
                                         <Badge bg="secondary" pill className="opacity-50">IN</Badge>
                                     </div>
                                 </Card.Header>
-                                <Card.Body className="p-3" style={{ height: '300px' }}>
-                                    <div className="d-flex flex-column h-100 justify-content-between">
+                                <Card.Body className="p-2 p-md-3">
+                                    <div className="d-flex flex-column gap-2">
                                         {playerSlots.map((p, idx) => {
                                             if (!p) return (
-                                                <div key={`empty-${idx}`} className="p-3 border border-secondary border-dashed rounded opacity-25 text-center text-muted small" style={{ height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <div key={`empty-${idx}`} className="p-2 border border-secondary border-dashed rounded opacity-25 text-center text-muted" style={{ fontSize: '10px' }}>
                                                     EMPTY_SLOT_{idx + 1}
                                                 </div>
                                             );
@@ -397,18 +469,17 @@ const GameArena = () => {
                                                     bg="black"
                                                     border={p.has_not_gate ? "danger" : "secondary"}
                                                     className={`bg-opacity-50 border-opacity-25 transition-all ${p.has_not_gate ? 'shadow-sm' : ''}`}
-                                                    style={{ height: '80px' }}
                                                 >
                                                     <Card.Body className="p-2 d-flex align-items-center">
                                                         <Row className="align-items-center g-0 w-100">
-                                                            <Col xs="auto" className="text-center" style={{ width: '45px' }}>
-                                                                <div className="fs-4 mb-0">{p.avatar}</div>
+                                                            <Col xs="auto" className="text-center me-2" style={{ minWidth: '40px' }}>
+                                                                <div className="fs-5 mb-0 lh-1">{p.avatar}</div>
                                                                 <div className={`fw-bold text-uppercase ${isMe ? 'text-info' : 'text-muted'}`} style={{ fontSize: '7px' }}>
-                                                                    {isMe ? 'YOU' : p.name.split(' ')[0]}
+                                                                    {isMe ? 'YOU' : p.name.split(' ')[0].substring(0, 6)}
                                                                 </div>
                                                             </Col>
 
-                                                            <Col className="px-2">
+                                                            <Col className="px-1">
                                                                 <Button
                                                                     onClick={() => isMe && isPlaying && timeLeft > (gameState.not_lockout_time || 5) && toggleNotGate(p.sid)}
                                                                     disabled={!isMe || !isPlaying || timeLeft <= (gameState.not_lockout_time || 5)}
@@ -417,23 +488,23 @@ const GameArena = () => {
                                                                     className={`w-100 py-1 border-2 transition-all ${p.has_not_gate ? 'animate-pulse shadow-sm' : ''} ${isMe && isPlaying && timeLeft > (gameState.not_lockout_time || 5) ? '' : 'opacity-50'}`}
                                                                     style={{ fontSize: '9px' }}
                                                                 >
-                                                                    {p.has_not_gate ? 'REMOVE NOT' : (timeLeft <= (gameState.not_lockout_time || 5) ? 'LOCKED' : 'TOGGLE_NOT')}
+                                                                    {p.has_not_gate ? 'REMOVE NOT' : (timeLeft <= (gameState.not_lockout_time || 5) ? 'LOCKED' : 'NOT')}
                                                                 </Button>
                                                             </Col>
 
-                                                            <Col xs="auto" className="text-center" style={{ width: '60px' }}>
+                                                            <Col xs="auto" className="text-center ms-1" style={{ minWidth: '55px' }}>
                                                                 <LogicCard
                                                                     value={p.card_value}
                                                                     hasNotGate={false}
                                                                     isWaiting={isWaiting}
                                                                     size="sm"
                                                                 />
-                                                                <div className={`mt-2 fw-black tracking-widest ${p.vote_value !== null ? 'text-info drop-shadow-[0_0_8px_rgba(6,182,212,0.8)]' : 'text-muted opacity-50'}`} style={{ fontSize: '12px' }}>
+                                                                <div className={`mt-1 fw-black ${p.vote_value !== null ? 'text-info' : 'text-muted opacity-50'}`} style={{ fontSize: '10px' }}>
                                                                     {p.vote_value !== null ? (
-                                                                        <span className="badge bg-info text-dark border border-white shadow-lg animate-pulse" style={{ fontSize: '10px' }}>
-                                                                            {isMe ? `VOTE: ${p.vote_value}` : 'READY'}
+                                                                        <span className="badge bg-info text-dark border border-white shadow-lg animate-pulse" style={{ fontSize: '9px' }}>
+                                                                            {isMe ? `V:${p.vote_value}` : '✓'}
                                                                         </span>
-                                                                    ) : 'WAITING'}
+                                                                    ) : '…'}
                                                                 </div>
                                                             </Col>
                                                         </Row>
@@ -447,7 +518,7 @@ const GameArena = () => {
                         </Col>
 
                         {/* COL 2: CENTRAL GATE */}
-                        <Col lg={4} className="text-center position-relative order-1 order-lg-2">
+                        <Col md={4} className="text-center position-relative order-1 order-md-2" style={{ maxWidth: '100%' }}>
                             <div className="position-absolute translate-middle top-50 start-50 w-100 h-100 bg-info opacity-10 rounded-circle blur-5 z-0" style={{ filter: 'blur(100px)' }}></div>
                             <div className="z-1 position-relative">
                                 <LogicGate
@@ -464,8 +535,8 @@ const GameArena = () => {
                         </Col>
 
                         {/* COL 3: OUTPUT & CONTROLS */}
-                        <Col lg={4} className="order-2 order-lg-3">
-                            <Card bg="dark" border={myTeam.solved_current_round ? "success" : "secondary"} className="bg-opacity-25 backdrop-blur h-100 border-2">
+                        <Col md={4} className="order-3 order-md-3">
+                            <Card bg="dark" border={outputCardBorder} className="bg-opacity-25 backdrop-blur h-100 border-2">
                                 <Card.Body className="p-4 d-flex flex-column align-items-center justify-content-center text-center">
                                     <div className="w-100 border-bottom border-secondary pb-2 mb-4">
                                         <small className="fw-black text-muted tracking-widest uppercase">Gate Output</small>
@@ -502,12 +573,12 @@ const GameArena = () => {
                                                         <Button
                                                             variant={voteValue === 0 ? "light" : "outline-secondary"}
                                                             onClick={() => castVote(voteValue === 0 ? null : 0)}
-                                                            className={`w-100 py-3 fw-black border-2 transition-all ${voteValue === 0 ? 'shadow-[0_0_20px_rgba(255,255,255,0.6)] scale-105' : 'opacity-75'}`}
-                                                            style={voteValue === 0 ? { boxShadow: '0 0 15px rgba(255,255,255,0.7)' } : {}}
+                                                            className={`w-100 py-3 py-md-3 fw-black border-2 transition-all ${voteValue === 0 ? 'scale-105' : 'opacity-75'}`}
+                                                            style={voteValue === 0 ? { boxShadow: '0 0 15px rgba(255,255,255,0.7)', minHeight: '60px' } : { minHeight: '60px' }}
                                                         >
                                                             <div className="d-flex align-items-center justify-content-center gap-2">
-                                                                <div className={`rounded-circle ${voteValue === 0 ? 'bg-dark' : 'bg-secondary'}`} style={{ width: '15px', height: '15px' }}></div>
-                                                                <span className="fs-5">VOTE 0</span>
+                                                                <div className={`rounded-circle flex-shrink-0 ${voteValue === 0 ? 'bg-dark' : 'bg-secondary'}`} style={{ width: '14px', height: '14px' }}></div>
+                                                                <span className="fs-5 fw-black">0</span>
                                                             </div>
                                                         </Button>
                                                     </Col>
@@ -515,12 +586,12 @@ const GameArena = () => {
                                                         <Button
                                                             variant={voteValue === 1 ? "info" : "outline-info"}
                                                             onClick={() => castVote(voteValue === 1 ? null : 1)}
-                                                            className={`w-100 py-3 fw-black border-2 transition-all ${voteValue === 1 ? 'shadow-[0_0_20px_rgba(6,182,212,0.8)] scale-105' : 'opacity-75'}`}
-                                                            style={voteValue === 1 ? { boxShadow: '0 0 15px rgba(6,182,212,0.7)' } : {}}
+                                                            className={`w-100 py-3 fw-black border-2 transition-all ${voteValue === 1 ? 'scale-105' : 'opacity-75'}`}
+                                                            style={voteValue === 1 ? { boxShadow: '0 0 15px rgba(6,182,212,0.7)', minHeight: '60px' } : { minHeight: '60px' }}
                                                         >
                                                             <div className="d-flex align-items-center justify-content-center gap-2">
-                                                                <div className={`rounded-circle ${voteValue === 1 ? 'bg-white' : 'bg-info'}`} style={{ width: '15px', height: '15px' }}></div>
-                                                                <span className="fs-5 text-shadow">VOTE 1</span>
+                                                                <div className={`rounded-circle flex-shrink-0 ${voteValue === 1 ? 'bg-white' : 'bg-info'}`} style={{ width: '14px', height: '14px' }}></div>
+                                                                <span className="fs-5 fw-black">1</span>
                                                             </div>
                                                         </Button>
                                                     </Col>
@@ -623,23 +694,23 @@ const GameArena = () => {
                             </Col>
                         </Row>
                     )}
+
+                    {/* TEAM CHAT SECTION */}
+                    {myTeam && myTeam.chat_enabled && (
+                        <Row className="mt-4 justify-content-center mb-5 pb-5">
+                            <Col lg={12}>
+                                <TeamChat
+                                    socket={socket}
+                                    room={gameState.id}
+                                    teamId={myTeam.id}
+                                    myName={player.name}
+                                />
+                            </Col>
+                        </Row>
+                    )}
                 </Container>
             </main>
-            {/* Chat Overlay */}
-            {
-                myTeam && myTeam.chat_enabled && (
-                    <TeamChat
-                        socket={socket}
-                        room={gameState.id}
-                        teamId={myTeam.id}
-                        myName={player.name}
-                    />
-                )
-            }
-
-
-
-        </div >
+        </div>
     );
 };
 

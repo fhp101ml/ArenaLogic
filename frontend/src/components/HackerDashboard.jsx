@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Container, Row, Col, Card, Button, Form, Badge, ProgressBar, InputGroup } from 'react-bootstrap';
 import { useSocket } from '../context/SocketContext';
 
-const HackerDashboard = ({ gameState, onStartRound, onToggleNot, onKickPlayer, onSetGameMode, onSetTargetGate, onSetTargetGates, onSetLogicMode, onSetMaxPlayers, onSetNotLockout, onResetScores, onToggleChat }) => {
+const HackerDashboard = ({ gameState, onStartRound, onToggleNot, onKickPlayer, onSetGameMode, onSetTargetGate, onSetTargetGates, onSetLogicMode, onSetMaxPlayers, onSetNotLockout, onResetScores, onToggleChat, onAddTeam, onRemoveTeam }) => {
     const { socket } = useSocket();
     const [roundDuration, setRoundDuration] = React.useState(30);
     const [timeLeft, setTimeLeft] = React.useState(0);
@@ -142,6 +142,47 @@ const HackerDashboard = ({ gameState, onStartRound, onToggleNot, onKickPlayer, o
                                     <Form.Text className="text-success opacity-50 x-small mt-1 d-block">
                                         Disable NOT gates when time is low.
                                     </Form.Text>
+
+
+                                    {/* Team Management */}
+                                    <hr className="border-secondary opacity-25 my-3" />
+                                    <Form.Group>
+                                        <div className="d-flex justify-content-between align-items-center mb-2">
+                                            <Form.Label className="small fw-bold text-success opacity-75 mb-0">TEAM_CONFIG</Form.Label>
+                                            <Badge bg={Object.keys(gameState.teams).length >= 15 ? 'danger' : 'success'} text="dark" className="x-small">
+                                                {Object.keys(gameState.teams).length}/15
+                                            </Badge>
+                                        </div>
+                                        <Button
+                                            variant="outline-success"
+                                            className="w-100 fw-bold text-uppercase x-small mb-2"
+                                            onClick={onAddTeam}
+                                            disabled={gameState.state === 'PLAYING' || Object.keys(gameState.teams).length >= 15}
+                                        >
+                                            + ADD_TEAM
+                                        </Button>
+                                        <div className="d-flex flex-column gap-1">
+                                            {Object.values(gameState.teams).map(team => (
+                                                <div key={team.id} className="d-flex justify-content-between align-items-center px-2 py-1 border border-success border-opacity-10 rounded">
+                                                    <span className="x-small text-success fw-bold">{team.name}</span>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline-danger"
+                                                        className="p-0 px-1 x-small fw-black border-0 opacity-50 hover-opacity-100"
+                                                        disabled={gameState.state === 'PLAYING' || Object.keys(team.players || {}).length > 0 || Object.keys(gameState.teams).length <= 1}
+                                                        onClick={() => onRemoveTeam?.(team.id)}
+                                                        title={Object.keys(team.players || {}).length > 0 ? 'Team has players' : 'Remove team'}
+                                                    >
+                                                        [RM]
+                                                    </Button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <Form.Text className="text-success opacity-50 x-small mt-1 d-block">
+                                            Add/Remove teams before the round starts.
+                                        </Form.Text>
+                                    </Form.Group>
+
                                     <hr className="border-secondary opacity-25 my-4" />
                                     <Button
                                         variant="outline-danger"
@@ -296,105 +337,109 @@ const HackerDashboard = ({ gameState, onStartRound, onToggleNot, onKickPlayer, o
                     {/* Team Metrics Column */}
                     <Col lg={8}>
                         <Row className="gy-4">
-                            {Object.values(gameState.teams).map(team => (
-                                <Col md={6} key={team.id}>
-                                    <Card bg="black" border={team.id === 'A' ? "success" : "info"} className="h-100 border-opacity-25 bg-opacity-50">
-                                        <Card.Header className={`bg-transparent border-opacity-25 py-3 d-flex justify-content-between align-items-center ${team.id === 'A' ? 'border-success' : 'border-info'}`}>
-                                            <h5 className={`mb-0 fw-black tracking-widest text-uppercase ${team.id === 'A' ? 'text-success' : 'text-info'}`}>
-                                                {team.id === 'A' ? 'Alpha' : 'Beta'} Unit
-                                            </h5>
-                                            <Badge bg={team.solved ? "success" : "secondary"} text="dark" pill>
-                                                {team.solved ? 'SOLVED' : 'ACTIVE'}
-                                            </Badge>
-                                            <div className="d-flex align-items-center gap-2 ms-2">
-                                                <Form.Check
-                                                    type="switch"
-                                                    id={`chat-switch-${team.id}`}
-                                                    label="💬"
-                                                    checked={team.chat_enabled || false}
-                                                    onChange={() => onToggleChat?.(team.id)}
-                                                    className="fs-6"
-                                                    title="Toggle Team Chat"
-                                                />
-                                            </div>
-                                        </Card.Header>
-                                        <Card.Body className="p-4">
-                                            <Row className="mb-4 g-3">
-                                                <Col xs={6}>
-                                                    <div className="p-3 bg-black border border-success border-opacity-10 rounded">
-                                                        <div className="x-small text-success opacity-50 mb-1">SCORE</div>
-                                                        <div className="h2 mb-0 fw-black text-white">{team.score}</div>
-                                                    </div>
-                                                </Col>
-                                                <Col xs={6}>
-                                                    <div className="p-3 bg-black border border-success border-opacity-10 rounded">
-                                                        <div className="x-small text-success opacity-50 mb-1">STABILITY</div>
-                                                        <div className="h4 mb-0 fw-bold">{team.solved ? '100%' : 'WAITING'}</div>
-                                                    </div>
-                                                </Col>
-                                            </Row>
-
-                                            <div className="d-flex flex-column gap-2">
-                                                <div className="x-small text-success opacity-50 fw-bold mb-2 uppercase tracking-widest">
-                                                    Manual Override / Hazards
+                            {Object.values(gameState.teams).map((team, index) => {
+                                const colors = ['success', 'info', 'warning', 'danger', 'primary', 'secondary'];
+                                const color = colors[index % colors.length];
+                                return (
+                                    <Col md={6} key={team.id}>
+                                        <Card bg="black" border={color} className="h-100 border-opacity-25 bg-opacity-50">
+                                            <Card.Header className={`bg-transparent border-opacity-25 py-3 d-flex justify-content-between align-items-center border-${color}`}>
+                                                <h5 className={`mb-0 fw-black tracking-widest text-uppercase text-${color}`}>
+                                                    {team.name}
+                                                </h5>
+                                                <Badge bg={team.solved ? "success" : "secondary"} text="dark" pill>
+                                                    {team.solved ? 'SOLVED' : 'ACTIVE'}
+                                                </Badge>
+                                                <div className="d-flex align-items-center gap-2 ms-2">
+                                                    <Form.Check
+                                                        type="switch"
+                                                        id={`chat-switch-${team.id}`}
+                                                        label="💬"
+                                                        checked={team.chat_enabled || false}
+                                                        onChange={() => onToggleChat?.(team.id)}
+                                                        className="fs-6"
+                                                        title="Toggle Team Chat"
+                                                    />
                                                 </div>
-                                                {Object.entries(team.players).map(([sid, p]) => (
-                                                    <Card key={sid} bg="black" className="border-success border-opacity-10 hover-border-opacity-50 transition-all">
-                                                        <Card.Body className="p-2 d-flex justify-content-between align-items-center">
-                                                            <div className="d-flex align-items-center gap-3">
-                                                                <span className="fs-4">{p.avatar}</span>
-                                                                <div>
-                                                                    <div className="small fw-bold text-white truncate" style={{ maxWidth: '80px' }}>{p.name}</div>
-                                                                    <div className="x-small text-success opacity-50">ID: {sid.slice(0, 4)}</div>
+                                            </Card.Header>
+                                            <Card.Body className="p-4">
+                                                <Row className="mb-4 g-3">
+                                                    <Col xs={6}>
+                                                        <div className="p-3 bg-black border border-success border-opacity-10 rounded">
+                                                            <div className="x-small text-success opacity-50 mb-1">SCORE</div>
+                                                            <div className="h2 mb-0 fw-black text-white">{team.score}</div>
+                                                        </div>
+                                                    </Col>
+                                                    <Col xs={6}>
+                                                        <div className="p-3 bg-black border border-success border-opacity-10 rounded">
+                                                            <div className="x-small text-success opacity-50 mb-1">STABILITY</div>
+                                                            <div className="h4 mb-0 fw-bold">{team.solved ? '100%' : 'WAITING'}</div>
+                                                        </div>
+                                                    </Col>
+                                                </Row>
+
+                                                <div className="d-flex flex-column gap-2">
+                                                    <div className="x-small text-success opacity-50 fw-bold mb-2 uppercase tracking-widest">
+                                                        Manual Override / Hazards
+                                                    </div>
+                                                    {Object.entries(team.players).map(([sid, p]) => (
+                                                        <Card key={sid} bg="black" className="border-success border-opacity-10 hover-border-opacity-50 transition-all">
+                                                            <Card.Body className="p-2 d-flex justify-content-between align-items-center">
+                                                                <div className="d-flex align-items-center gap-3">
+                                                                    <span className="fs-4">{p.avatar}</span>
+                                                                    <div>
+                                                                        <div className="small fw-bold text-white truncate" style={{ maxWidth: '80px' }}>{p.name}</div>
+                                                                        <div className="x-small text-success opacity-50">ID: {sid.slice(0, 4)}</div>
+                                                                    </div>
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="outline-danger"
+                                                                        className="p-0 border-0 x-small fw-black opacity-50 hover-opacity-100"
+                                                                        onClick={() => onKickPlayer(sid)}
+                                                                    >
+                                                                        [KICK]
+                                                                    </Button>
                                                                 </div>
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="outline-danger"
-                                                                    className="p-0 border-0 x-small fw-black opacity-50 hover-opacity-100"
-                                                                    onClick={() => onKickPlayer(sid)}
-                                                                >
-                                                                    [KICK]
-                                                                </Button>
-                                                            </div>
-                                                            <div className="d-flex gap-2">
-                                                                <Button
-                                                                    onClick={() => socket?.emit('toggle_accessibility', { room_id: gameState.id, target_sid: sid })}
-                                                                    variant={p.accessibility_enabled ? "success" : "outline-secondary"}
-                                                                    size="sm"
-                                                                    className="p-2 fw-black x-small border-2"
-                                                                    title={`Accessibility ${p.accessibility_enabled ? 'ON' : 'OFF'}`}
-                                                                >
-                                                                    {p.accessibility_enabled ? '🔊' : '🔇'}
-                                                                </Button>
-                                                                <Button
-                                                                    onClick={() => onToggleNot(sid)}
-                                                                    disabled={timeLeft > 0 && timeLeft <= 5}
-                                                                    variant={p.has_not_gate ? "danger" : "outline-success"}
-                                                                    size="sm"
-                                                                    className={`p-2 fw-black text-uppercase x-small border-2 ${p.has_not_gate ? 'shadow-sm animate-pulse' : ''}`}
-                                                                >
-                                                                    {timeLeft > 0 && timeLeft <= 5 ? 'Time_Lock' : p.has_not_gate ? 'Hazard_On' : 'Apply_NOT'}
-                                                                </Button>
-                                                            </div>
-                                                        </Card.Body>
-                                                    </Card>
-                                                ))}
-                                            </div>
-                                        </Card.Body>
-                                        <Card.Footer className="bg-transparent border-top border-secondary border-opacity-10 p-3">
-                                            <Button
-                                                variant="outline-danger"
-                                                size="sm"
-                                                className="w-100 x-small fw-black text-uppercase opacity-50 hover-opacity-100"
-                                                onClick={onResetScores}
-                                                disabled={gameState.state === 'PLAYING'}
-                                            >
-                                                [ RESET_ALL_SCORES ]
-                                            </Button>
-                                        </Card.Footer>
-                                    </Card>
-                                </Col>
-                            ))}
+                                                                <div className="d-flex gap-2">
+                                                                    <Button
+                                                                        onClick={() => socket?.emit('toggle_accessibility', { room_id: gameState.id, target_sid: sid })}
+                                                                        variant={p.accessibility_enabled ? "success" : "outline-secondary"}
+                                                                        size="sm"
+                                                                        className="p-2 fw-black x-small border-2"
+                                                                        title={`Accessibility ${p.accessibility_enabled ? 'ON' : 'OFF'}`}
+                                                                    >
+                                                                        {p.accessibility_enabled ? '🔊' : '🔇'}
+                                                                    </Button>
+                                                                    <Button
+                                                                        onClick={() => onToggleNot(sid)}
+                                                                        disabled={timeLeft > 0 && timeLeft <= 5}
+                                                                        variant={p.has_not_gate ? "danger" : "outline-success"}
+                                                                        size="sm"
+                                                                        className={`p-2 fw-black text-uppercase x-small border-2 ${p.has_not_gate ? 'shadow-sm animate-pulse' : ''}`}
+                                                                    >
+                                                                        {timeLeft > 0 && timeLeft <= 5 ? 'Time_Lock' : p.has_not_gate ? 'Hazard_On' : 'Apply_NOT'}
+                                                                    </Button>
+                                                                </div>
+                                                            </Card.Body>
+                                                        </Card>
+                                                    ))}
+                                                </div>
+                                            </Card.Body>
+                                            <Card.Footer className="bg-transparent border-top border-secondary border-opacity-10 p-3">
+                                                <Button
+                                                    variant="outline-danger"
+                                                    size="sm"
+                                                    className="w-100 x-small fw-black text-uppercase opacity-50 hover-opacity-100"
+                                                    onClick={onResetScores}
+                                                    disabled={gameState.state === 'PLAYING'}
+                                                >
+                                                    [ RESET_ALL_SCORES ]
+                                                </Button>
+                                            </Card.Footer>
+                                        </Card>
+                                    </Col>
+                                );
+                            })}
                         </Row>
                     </Col>
                 </Row>

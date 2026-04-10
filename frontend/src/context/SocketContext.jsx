@@ -8,8 +8,22 @@ export const SocketProvider = ({ children }) => {
     const [isConnected, setIsConnected] = useState(false);
 
     useEffect(() => {
-        // Connect to backend
-        const newSocket = io('http://localhost:8000');
+        // Dynamically choose backend URL based on how the user accessed the page
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const backendUrl = isLocal
+            ? 'http://localhost:8000'
+            : (import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000');
+
+        const newSocket = io(backendUrl, {
+            extraHeaders: {
+                "ngrok-skip-browser-warning": "true"
+            },
+            transports: ['websocket', 'polling'],
+            reconnection: true,
+            reconnectionAttempts: 10,
+            reconnectionDelay: 1000,
+            timeout: 20000
+        });
 
         newSocket.on('connect', () => {
             console.log('Connected to WebSocket');

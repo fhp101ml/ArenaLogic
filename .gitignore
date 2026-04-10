@@ -39,4 +39,6 @@ interaction_template/
 TODO.md
 TODO
 *.csv
+backend/debug_last_audio.webm
+ngrok.yml
   
