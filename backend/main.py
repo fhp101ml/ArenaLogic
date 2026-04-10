@@ -568,7 +568,8 @@ async def get_assistant_characters(sid, data):
             chars.append({
                 "id": key,
                 "name": char["name"],
-                "voice": char["voice"]
+                "description": char.get("description", ""),
+                "voice": char.get("voice", "es-ES-AlvaroNeural")
             })
         await sio.emit('assistant_characters', chars, to=sid)
 
@@ -590,6 +591,75 @@ async def assistant_chat(sid, data):
     
     if result:
         await sio.emit('assistant_response', result, to=sid)
+
+@sio.event
+async def add_assistant_character(sid, data):
+    """
+    Adds a new dynamic character to the assistant pool.
+    """
+    if not assistant:
+        return
+        
+    name = data.get('name')
+    description = data.get('description')
+    voice = data.get('voice', 'es-ES-AlvaroNeural')
+    
+    if not name or not description:
+        await sio.emit('assistant_error', {"message": "Nombre y descripción son obligatorios"}, to=sid)
+        return
+        
+    # Generate a unique key
+    import re
+    key = re.sub(r'[^a-zA-Z0-9]', '_', name.lower())
+    
+    success = assistant.save_character(key, name, description, voice)
+    if success:
+        await sio.emit('character_added', {"key": key, "name": name}, to=sid)
+        # Refresh character list for everyone
+        characters_list = []
+        for k, v in assistant.characters.items():
+            characters_list.append({
+                "id": k, 
+                "name": v['name'],
+                "description": v.get('description', ''),
+                "voice": v.get('voice', 'es-ES-AlvaroNeural')
+            })
+        await sio.emit('assistant_characters', characters_list)
+    else:
+        await sio.emit('assistant_error', {"message": "Error al guardar el personaje"}, to=sid)
+
+@sio.event
+async def edit_assistant_character(sid, data):
+    """
+    Updates an existing character.
+    """
+    if not assistant:
+        return
+        
+    key = data.get('key')
+    name = data.get('name')
+    description = data.get('description')
+    voice = data.get('voice')
+    
+    if not key or not name or not description:
+        await sio.emit('assistant_error', {"message": "Datos incompletos para editar"}, to=sid)
+        return
+        
+    success = assistant.save_character(key, name, description, voice)
+    if success:
+        await sio.emit('character_updated', {"key": key, "name": name}, to=sid)
+        # Refresh character list for everyone
+        characters_list = []
+        for k, v in assistant.characters.items():
+            characters_list.append({
+                "id": k, 
+                "name": v['name'],
+                "description": v.get('description', ''),
+                "voice": v.get('voice', 'es-ES-AlvaroNeural')
+            })
+        await sio.emit('assistant_characters', characters_list)
+    else:
+        await sio.emit('assistant_error', {"message": "Error al actualizar el personaje"}, to=sid)
 
 @app.on_event("startup")
 async def startup_event():
